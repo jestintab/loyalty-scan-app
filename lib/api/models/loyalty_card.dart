@@ -45,6 +45,32 @@ class LoyaltyCard {
   final String? membershipCategory;
   final DateTime? membershipExpiry;
 
+  /// A copy carrying the counts an action returned. Only these three move —
+  /// the customer and the card's identity do not change under a stamp.
+  LoyaltyCard withRewardState({
+    required int stampCount,
+    required int rewardsAvailable,
+    required int stampsRequired,
+  }) =>
+      LoyaltyCard(
+        cardId: cardId,
+        businessId: businessId,
+        userName: userName,
+        userEmail: userEmail,
+        userPhone: userPhone,
+        templateType: templateType,
+        stampCount: stampCount,
+        rewardsAvailable: rewardsAvailable,
+        stampsRequired: stampsRequired,
+        rewardDescription: rewardDescription,
+        businessName: businessName,
+        pointsBalance: pointsBalance,
+        pointsExpiry: pointsExpiry,
+        membershipNumber: membershipNumber,
+        membershipCategory: membershipCategory,
+        membershipExpiry: membershipExpiry,
+      );
+
   factory LoyaltyCard.fromJson(Map<String, dynamic> json) {
     final merchant =
         ((json['merchantData'] as Map?) ?? const {}).cast<String, dynamic>();

@@ -81,6 +81,56 @@ class ScanNotifier extends Notifier<ScanState> {
     }
   }
 
+  Future<void> addStamps(int increment) => _act(
+        (api, card, businessId) => api.addStamps(
+          cardId: card.cardId,
+          businessId: businessId,
+          increment: increment,
+        ),
+      );
+
+  Future<void> addToRewards() => _act(
+        (api, card, businessId) =>
+            api.addToRewards(cardId: card.cardId, businessId: businessId),
+      );
+
+  Future<void> redeem() => _act(
+        (api, card, businessId) =>
+            api.redeem(cardId: card.cardId, businessId: businessId),
+      );
+
+  /// The shape every reward action takes: only from a loaded card, only one at
+  /// a time, and the new counts come from the response — never from arithmetic
+  /// here. A multi-milestone card can bank a reward and reset to zero on an
+  /// ordinary stamp, which no local guess would predict.
+  Future<void> _act(
+    Future<CardActionResult> Function(ApiClient, LoyaltyCard, String) call,
+  ) async {
+    final current = state;
+    if (current is! ScanFound || current.busy) return;
+
+    final businessId = ref.read(businessIdProvider);
+    if (businessId == null) {
+      state = const ScanFailed('No shop selected. Sign in again.');
+      return;
+    }
+
+    state = current.copyWith(busy: true);
+    try {
+      final result =
+          await call(ref.read(apiClientProvider), current.card, businessId);
+      state = ScanFound(
+        current.card.withRewardState(
+          stampCount: result.stampCount,
+          rewardsAvailable: result.rewardsAvailable,
+          stampsRequired: result.stampsRequired,
+        ),
+      );
+    } on ApiException catch (e) {
+      state = ScanFound(current.card, actionError: e.message);
+    }
+  }
+
   void reset() => state = const ScanIdle();
 }
 

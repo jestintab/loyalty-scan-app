@@ -3127,6 +3127,12 @@ void main() {
         child: MaterialApp(home: Scaffold(body: RewardActions(card: c))),
       ),
     );
+    // This widget only ever renders inside ScanFound, so the notifier is put
+    // there too. Without it the buttons are correctly inert — _act refuses to
+    // run against a notifier holding no card — and every action test would be
+    // asserting on a state the app never reaches.
+    await tester.container().read(scanProvider.notifier).lookUp(c.cardId);
+    await tester.pumpAndSettle();
   }
 
   testWidgets('shows the stamp count and the reward on offer', (tester) async {
@@ -3144,8 +3150,8 @@ void main() {
     await pump(tester, card(stampCount: 3, rewardsAvailable: 0));
 
     for (final label in ['Add Stamps', 'Add to Rewards', 'Redeem']) {
-      final button = tester.widget<ButtonStyleButton>(
-        find.widgetWithText(ButtonStyleButton, label),
+      final button = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, label),
       );
       expect(button.onPressed, isNotNull, reason: '$label must stay tappable');
     }
@@ -3154,7 +3160,7 @@ void main() {
   testWidgets('Redeem asks before it takes anything away', (tester) async {
     await pump(tester, card(rewardsAvailable: 1));
 
-    await tester.tap(find.widgetWithText(ButtonStyleButton, 'Redeem'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Redeem'));
     await tester.pumpAndSettle();
 
     expect(find.text('Redeem a reward?'), findsOneWidget);
@@ -3166,7 +3172,7 @@ void main() {
     api.actionResult =
         const CardActionResult(stampCount: 0, stampsRequired: 10, rewardsAvailable: 0);
 
-    await tester.tap(find.widgetWithText(ButtonStyleButton, 'Redeem'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Redeem'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(TextButton, 'Redeem'));
     await tester.pumpAndSettle();
@@ -3182,7 +3188,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.add));
     await tester.tap(find.byIcon(Icons.add));
     await tester.pump();
-    await tester.tap(find.widgetWithText(ButtonStyleButton, 'Add Stamps'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Add Stamps'));
     await tester.pumpAndSettle();
 
     expect(api.actions, ['addStamps:3']);
@@ -3471,7 +3477,7 @@ void main() {
       api.pointsResult = const PointsResult(pointsBalance: 50, pointsExpiry: null);
 
       await tester.enterText(find.byKey(const Key('points-amount')), '50');
-      await tester.tap(find.widgetWithText(ButtonStyleButton, 'Add Points'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Add Points'));
       await tester.pumpAndSettle();
 
       expect(api.actions, ['adjustPoints:50']);
@@ -3483,7 +3489,7 @@ void main() {
       api.pointsResult = const PointsResult(pointsBalance: 70, pointsExpiry: null);
 
       await tester.enterText(find.byKey(const Key('points-amount')), '30');
-      await tester.tap(find.widgetWithText(ButtonStyleButton, 'Deduct Points'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Deduct Points'));
       await tester.pumpAndSettle();
 
       expect(api.actions, ['adjustPoints:-30']);
@@ -3494,7 +3500,7 @@ void main() {
       await pump(tester, c, PointsActions(card: c));
 
       await tester.enterText(find.byKey(const Key('points-amount')), 'abc');
-      await tester.tap(find.widgetWithText(ButtonStyleButton, 'Add Points'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Add Points'));
       await tester.pumpAndSettle();
 
       expect(api.actions, isEmpty);
@@ -3528,7 +3534,7 @@ void main() {
 
       await tester.tap(find.text('12 months'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(ButtonStyleButton, 'Renew'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Renew'));
       await tester.pumpAndSettle();
 
       expect(api.actions, ['renewMembership:12']);
