@@ -753,7 +753,9 @@ class HttpApiClient implements ApiClient {
       _uri(['api', 'passes', 'scan-log'], {
         'businessId': businessId,
         'limit': '$limit',
-        if (cursor != null) 'cursor': cursor,
+        // Dart 3's null-aware element: the entry is omitted when cursor is
+        // null. `if (cursor != null)` here trips use_null_aware_elements.
+        'cursor': ?cursor,
       }),
     );
     return ScanLogPage.fromJson(json);

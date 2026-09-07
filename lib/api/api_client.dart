@@ -234,7 +234,7 @@ class HttpApiClient implements ApiClient {
       _uri(['api', 'passes', 'scan-log'], {
         'businessId': businessId,
         'limit': '$limit',
-        if (cursor != null) 'cursor': cursor,
+        'cursor': ?cursor,
       }),
     );
     return ScanLogPage.fromJson(json);
