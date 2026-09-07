@@ -22,6 +22,19 @@ void main() {
       expect(session.businessIds, ['biz-1', 'biz-2']);
     });
 
+    test('reads the user id the API actually sends, which is a string', () {
+      // users.id is BIGSERIAL, and node-postgres hands BIGINT back as a
+      // string. A cast to int here threw on every single sign-in.
+      final session = Session.fromJson(
+        jsonDecode('''
+        {"token":"jwt","user":{"id":"2","email":"s@x.qa","name":"Sam",
+         "role":"staff","businessIds":["biz-1"]}}
+      '''),
+      );
+
+      expect(session.userId, 2);
+    });
+
     test('a user linked to nothing yields an empty list, not a crash', () {
       final session = Session.fromJson(
         jsonDecode('''

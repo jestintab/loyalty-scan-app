@@ -26,7 +26,7 @@ class Session {
     final user = (json['user'] as Map).cast<String, dynamic>();
     return Session(
       token: json['token'] as String,
-      userId: user['id'] as int,
+      userId: _int(user['id']),
       email: user['email'] as String?,
       name: (user['name'] as String?) ?? '',
       role: user['role'] as String,
@@ -35,4 +35,14 @@ class Session {
           .toList(),
     );
   }
+}
+
+/// users.id is BIGSERIAL, and node-postgres returns BIGINT as a string. Casting
+/// straight to int threw on every sign-in — the same trap LoyaltyCard's counts
+/// sit behind.
+int _int(Object? value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value) ?? 0;
+  return 0;
 }

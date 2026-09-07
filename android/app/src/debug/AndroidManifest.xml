@@ -4,4 +4,9 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- Debug only, and deliberately not in the main manifest: a local API on
+         the developer's machine is plain http, which Android has blocked by
+         default since targetSdk 28. Release builds keep the block. -->
+    <application android:usesCleartextTraffic="true" />
 </manifest>

@@ -6,7 +6,12 @@ plugins {
 
 android {
     namespace = "me.qwallet.qwallet_scan"
-    compileSdk = flutter.compileSdkVersion
+    // 37, not flutter.compileSdkVersion (36): flutter_secure_storage 11's AAR
+    // metadata requires everything depending on it to compile against 37 or
+    // later. compileSdk only affects which APIs are on the compile classpath —
+    // minSdk and targetSdk are untouched, so this changes nothing about which
+    // devices the app runs on.
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
