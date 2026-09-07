@@ -49,10 +49,10 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
         ScanLoading() => const Center(child: CircularProgressIndicator()),
         ScanFound() => CardResultView(card: state.card),
         ScanFailed() => MessageView(
-            icon: Icons.error_outline,
-            title: state.message,
-            onRetry: () => ref.read(scanProvider.notifier).reset(),
-          ),
+          icon: Icons.error_outline,
+          title: state.message,
+          onRetry: () => ref.read(scanProvider.notifier).reset(),
+        ),
       },
       bottomNavigationBar: state is ScanIdle
           ? null

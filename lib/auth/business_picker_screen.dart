@@ -6,14 +6,14 @@ import 'auth_notifier.dart';
 
 /// Names for the ids in the token, best-effort. A failed lookup falls back to
 /// the id: not being able to read a name must not lock someone out of scanning.
-final _businessNamesProvider =
-    FutureProvider.autoDispose.family<String, String>((ref, businessId) async {
-  try {
-    return await ref.read(apiClientProvider).fetchBusinessName(businessId);
-  } catch (_) {
-    return businessId;
-  }
-});
+final _businessNamesProvider = FutureProvider.autoDispose
+    .family<String, String>((ref, businessId) async {
+      try {
+        return await ref.read(apiClientProvider).fetchBusinessName(businessId);
+      } catch (_) {
+        return businessId;
+      }
+    });
 
 class BusinessPickerScreen extends ConsumerWidget {
   const BusinessPickerScreen({super.key});

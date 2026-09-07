@@ -63,8 +63,8 @@ class HttpApiClient implements ApiClient {
     required this.baseUrl,
     http.Client? httpClient,
     String? Function()? tokenReader,
-  })  : _http = httpClient ?? http.Client(),
-        _tokenReader = tokenReader ?? (() => null);
+  }) : _http = httpClient ?? http.Client(),
+       _tokenReader = tokenReader ?? (() => null);
 
   final String baseUrl;
   final http.Client _http;
@@ -232,11 +232,10 @@ class HttpApiClient implements ApiClient {
   }) async {
     final json = await _send(
       'GET',
-      _uri(['api', 'passes', 'scan-log'], {
-        'businessId': businessId,
-        'limit': '$limit',
-        'cursor': ?cursor,
-      }),
+      _uri(
+        ['api', 'passes', 'scan-log'],
+        {'businessId': businessId, 'limit': '$limit', 'cursor': ?cursor},
+      ),
     );
     return ScanLogPage.fromJson(json);
   }

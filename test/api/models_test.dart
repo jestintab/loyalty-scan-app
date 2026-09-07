@@ -8,10 +8,12 @@ import 'package:qwallet_scan/api/models/session.dart';
 void main() {
   group('Session', () {
     test('reads the token and the businesses the user is linked to', () {
-      final session = Session.fromJson(jsonDecode('''
+      final session = Session.fromJson(
+        jsonDecode('''
         {"token":"jwt","user":{"id":7,"email":"s@x.qa","name":"Sam",
          "role":"staff","businessIds":["biz-1","biz-2"]}}
-      '''));
+      '''),
+      );
 
       expect(session.token, 'jwt');
       expect(session.userId, 7);
@@ -21,10 +23,12 @@ void main() {
     });
 
     test('a user linked to nothing yields an empty list, not a crash', () {
-      final session = Session.fromJson(jsonDecode('''
+      final session = Session.fromJson(
+        jsonDecode('''
         {"token":"jwt","user":{"id":7,"email":"s@x.qa","name":"Sam",
          "role":"business","businessIds":[]}}
-      '''));
+      '''),
+      );
 
       expect(session.businessIds, isEmpty);
     });
@@ -32,7 +36,8 @@ void main() {
 
   group('LoyaltyCard', () {
     test('reads a reward card, flattening the merchantData it needs', () {
-      final card = LoyaltyCard.fromJson(jsonDecode('''
+      final card = LoyaltyCard.fromJson(
+        jsonDecode('''
         {"cardId":"ABC123","businessId":"biz-1","userName":"Ali",
          "userEmail":"a@b.qa","userPhone":"+97433123456","templateType":"reward",
          "stampCount":7,"rewardsAvailable":1,"pointsBalance":0,
@@ -40,7 +45,8 @@ void main() {
          "membershipExpiry":null,
          "merchantData":{"businessName":"Wake Qatar",
           "rewardDescription":"A free flat white","stampsRequired":10}}
-      '''));
+      '''),
+      );
 
       expect(card.cardId, 'ABC123');
       expect(card.templateType, 'reward');
@@ -54,13 +60,15 @@ void main() {
     test('parses the nulls the API really sends on a reward card', () {
       // pointsExpiry, membershipExpiry and userPhone are all null on a reward
       // card — the API returns every field for every type.
-      final card = LoyaltyCard.fromJson(jsonDecode('''
+      final card = LoyaltyCard.fromJson(
+        jsonDecode('''
         {"cardId":"ABC123","businessId":"biz-1","userName":"Ali",
          "userEmail":"a@b.qa","userPhone":null,"templateType":"reward",
          "stampCount":0,"rewardsAvailable":0,"pointsBalance":0,
          "pointsExpiry":null,"membershipNumber":null,"membershipCategory":null,
          "membershipExpiry":null,"merchantData":{}}
-      '''));
+      '''),
+      );
 
       expect(card.userPhone, isNull);
       expect(card.pointsExpiry, isNull);
@@ -74,13 +82,15 @@ void main() {
       // node-postgres returns BIGINT and NUMERIC as strings, and this API has
       // handed a bare id back as one before now. A count that silently became
       // 0 would read as an empty card at the counter.
-      final card = LoyaltyCard.fromJson(jsonDecode('''
+      final card = LoyaltyCard.fromJson(
+        jsonDecode('''
         {"cardId":"ABC123","businessId":"biz-1","userName":"Ali",
          "userEmail":null,"userPhone":null,"templateType":"reward",
          "stampCount":"7","rewardsAvailable":"1","pointsBalance":"250",
          "pointsExpiry":null,"membershipNumber":null,"membershipCategory":null,
          "membershipExpiry":null,"merchantData":{"stampsRequired":"10"}}
-      '''));
+      '''),
+      );
 
       expect(card.stampCount, 7);
       expect(card.rewardsAvailable, 1);
@@ -88,28 +98,34 @@ void main() {
       expect(card.stampsRequired, 10);
     });
 
-    test('a count that is neither a number nor a numeric string reads as zero',
-        () {
-      final card = LoyaltyCard.fromJson(jsonDecode('''
+    test(
+      'a count that is neither a number nor a numeric string reads as zero',
+      () {
+        final card = LoyaltyCard.fromJson(
+          jsonDecode('''
         {"cardId":"ABC123","businessId":"biz-1","userName":null,
          "userEmail":null,"userPhone":null,"templateType":"reward",
          "stampCount":"not-a-number","rewardsAvailable":null,"pointsBalance":0,
          "pointsExpiry":null,"membershipNumber":null,"membershipCategory":null,
          "membershipExpiry":null,"merchantData":{}}
-      '''));
+      '''),
+        );
 
-      expect(card.stampCount, 0);
-      expect(card.rewardsAvailable, 0);
-    });
+        expect(card.stampCount, 0);
+        expect(card.rewardsAvailable, 0);
+      },
+    );
 
     test('reads a membership card, including its dates', () {
-      final card = LoyaltyCard.fromJson(jsonDecode('''
+      final card = LoyaltyCard.fromJson(
+        jsonDecode('''
         {"cardId":"M1","businessId":"biz-1","userName":"Ali","userEmail":null,
          "userPhone":null,"templateType":"membership","stampCount":0,
          "rewardsAvailable":0,"pointsBalance":0,"pointsExpiry":null,
          "membershipNumber":"MBR-0007","membershipCategory":"Gold",
          "membershipExpiry":"2027-01-31T00:00:00.000Z","merchantData":{}}
-      '''));
+      '''),
+      );
 
       expect(card.membershipNumber, 'MBR-0007');
       expect(card.membershipCategory, 'Gold');
@@ -119,7 +135,8 @@ void main() {
 
   group('ScanLogPage', () {
     test('reads both row types out of the union the API returns', () {
-      final page = ScanLogPage.fromJson(jsonDecode('''
+      final page = ScanLogPage.fromJson(
+        jsonDecode('''
         {"scanLog":[
           {"id":2,"type":"redemption","cardId":"ABC123","staffName":"Sam",
            "customerName":"Ali","customerEmail":"a@b.qa","stampsAdded":10,
@@ -130,7 +147,8 @@ void main() {
            "stampsBefore":6,"stampsAfter":7,
            "loggedAt":"2026-09-07T08:00:00.000Z"}],
          "hasMore":true,"nextCursor":"2026-09-07T08:00:00.000Z"}
-      '''));
+      '''),
+      );
 
       expect(page.entries, hasLength(2));
       expect(page.entries.first.type, ScanLogType.redemption);

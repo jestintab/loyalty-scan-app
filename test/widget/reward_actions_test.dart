@@ -10,23 +10,23 @@ import 'package:qwallet_scan/scan/scan_notifier.dart';
 import '../support/fake_api_client.dart';
 
 LoyaltyCard card({int stampCount = 3, int rewardsAvailable = 0}) => LoyaltyCard(
-      cardId: 'ABC1234567',
-      businessId: 'biz-1',
-      userName: 'Ali',
-      userEmail: 'a@b.qa',
-      userPhone: null,
-      templateType: 'reward',
-      stampCount: stampCount,
-      rewardsAvailable: rewardsAvailable,
-      stampsRequired: 10,
-      rewardDescription: 'A free flat white',
-      businessName: 'Wake',
-      pointsBalance: 0,
-      pointsExpiry: null,
-      membershipNumber: null,
-      membershipCategory: null,
-      membershipExpiry: null,
-    );
+  cardId: 'ABC1234567',
+  businessId: 'biz-1',
+  userName: 'Ali',
+  userEmail: 'a@b.qa',
+  userPhone: null,
+  templateType: 'reward',
+  stampCount: stampCount,
+  rewardsAvailable: rewardsAvailable,
+  stampsRequired: 10,
+  rewardDescription: 'A free flat white',
+  businessName: 'Wake',
+  pointsBalance: 0,
+  pointsExpiry: null,
+  membershipNumber: null,
+  membershipCategory: null,
+  membershipExpiry: null,
+);
 
 void main() {
   late FakeApiClient api;
@@ -40,7 +40,9 @@ void main() {
           apiClientProvider.overrideWithValue(api),
           businessIdProvider.overrideWithValue('biz-1'),
         ],
-        child: MaterialApp(home: Scaffold(body: RewardActions(card: c))),
+        child: MaterialApp(
+          home: Scaffold(body: RewardActions(card: c)),
+        ),
       ),
     );
     // This widget only ever renders inside ScanFound, so the notifier is put
@@ -58,8 +60,9 @@ void main() {
     expect(find.text('A free flat white'), findsOneWidget);
   });
 
-  testWidgets('all three actions are tappable on a part-filled card',
-      (tester) async {
+  testWidgets('all three actions are tappable on a part-filled card', (
+    tester,
+  ) async {
     // Neither Add to Rewards nor Redeem is gated on a local rule: the
     // add-reward threshold on a multi-milestone card is a cumulative sum this
     // app is not given, and redeem is legal straight off a completed card with
@@ -103,8 +106,9 @@ void main() {
     expect(api.actions, ['redeem']);
   });
 
-  testWidgets('the increment can be raised and is what gets sent',
-      (tester) async {
+  testWidgets('the increment can be raised and is what gets sent', (
+    tester,
+  ) async {
     await pump(tester, card());
     api.actionResult = const CardActionResult(
       stampCount: 6,

@@ -51,8 +51,9 @@ class AuthNotifier extends Notifier<AuthState> {
       state = const AuthSignedOut();
       return;
     }
-    state =
-        stored.businessId == null ? AuthNeedsBusiness(stored) : AuthSignedIn(stored);
+    state = stored.businessId == null
+        ? AuthNeedsBusiness(stored)
+        : AuthSignedIn(stored);
   }
 
   Future<void> signIn(String identifier, String password) async {
@@ -79,8 +80,9 @@ class AuthNotifier extends Notifier<AuthState> {
         return;
       }
 
-      final single =
-          session.businessIds.length == 1 ? session.businessIds.first : null;
+      final single = session.businessIds.length == 1
+          ? session.businessIds.first
+          : null;
       final auth = StoredAuth(
         token: session.token,
         name: session.name,
@@ -116,13 +118,15 @@ class AuthNotifier extends Notifier<AuthState> {
 
   /// The token for the HTTP layer, or null when signed out.
   String? get token => switch (state) {
-        AuthNeedsBusiness(:final auth) => auth.token,
-        AuthSignedIn(:final auth) => auth.token,
-        _ => null,
-      };
+    AuthNeedsBusiness(:final auth) => auth.token,
+    AuthSignedIn(:final auth) => auth.token,
+    _ => null,
+  };
 }
 
-final authProvider = NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new);
+final authProvider = NotifierProvider<AuthNotifier, AuthState>(
+  AuthNotifier.new,
+);
 
 /// The business every API call needs, or null when there isn't one yet.
 final businessIdProvider = Provider<String?>((ref) {

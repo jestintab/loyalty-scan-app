@@ -22,9 +22,9 @@ class ApiException implements Exception {
   final String message;
 
   factory ApiException.network() => ApiException(
-        ApiErrorKind.network,
-        "Can't reach the server. Check your connection.",
-      );
+    ApiErrorKind.network,
+    "Can't reach the server. Check your connection.",
+  );
 
   factory ApiException.fromResponse(int statusCode, String body) {
     final serverMessage = _readError(body);

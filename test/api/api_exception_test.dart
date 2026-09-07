@@ -40,7 +40,10 @@ void main() {
     });
 
     test('500 does not leak the server body', () {
-      final e = ApiException.fromResponse(500, '{"error":"connect ECONNREFUSED"}');
+      final e = ApiException.fromResponse(
+        500,
+        '{"error":"connect ECONNREFUSED"}',
+      );
       expect(e.kind, ApiErrorKind.server);
       expect(e.message, 'Something went wrong at our end. Please try again.');
     });

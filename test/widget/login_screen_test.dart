@@ -27,8 +27,9 @@ void main() {
     );
   }
 
-  testWidgets('the identifier field says a mobile number works too',
-      (tester) async {
+  testWidgets('the identifier field says a mobile number works too', (
+    tester,
+  ) async {
     await pumpLogin(tester);
 
     // Staff can be issued a mobile and no email; a field labelled "Email" would
@@ -56,7 +57,9 @@ void main() {
     expect(api.loginCalls.single.password, 'pw');
   });
 
-  testWidgets('a failure is shown on the screen, not swallowed', (tester) async {
+  testWidgets('a failure is shown on the screen, not swallowed', (
+    tester,
+  ) async {
     await pumpLogin(tester);
     api.loginError = ApiException(
       ApiErrorKind.unauthorized,
@@ -71,8 +74,9 @@ void main() {
     expect(find.text('Invalid credentials'), findsOneWidget);
   });
 
-  testWidgets('empty fields are refused without calling the API',
-      (tester) async {
+  testWidgets('empty fields are refused without calling the API', (
+    tester,
+  ) async {
     await pumpLogin(tester);
 
     await tester.tap(find.text('Sign in'));

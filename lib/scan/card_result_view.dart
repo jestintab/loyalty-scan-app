@@ -18,7 +18,9 @@ class CardResultView extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         Text(
-          card.userName?.trim().isNotEmpty == true ? card.userName! : 'Customer',
+          card.userName?.trim().isNotEmpty == true
+              ? card.userName!
+              : 'Customer',
           style: Theme.of(context).textTheme.headlineSmall,
         ),
         if (card.userEmail != null)
@@ -29,10 +31,10 @@ class CardResultView extends StatelessWidget {
           'points' => PointsActions(card: card),
           'membership' => MembershipActions(card: card),
           _ => const MessageView(
-              icon: Icons.help_outline,
-              title: "This card type isn't supported in this app",
-              detail: 'Use the web dashboard for this customer.',
-            ),
+            icon: Icons.help_outline,
+            title: "This card type isn't supported in this app",
+            detail: 'Use the web dashboard for this customer.',
+          ),
         },
       ],
     );

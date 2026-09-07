@@ -109,59 +109,65 @@ void main() {
     expect(container.read(scanProvider), isA<ScanIdle>());
   });
 
-  test('scanning without a chosen business fails loudly rather than silently',
-      () async {
-    api = FakeApiClient();
-    final container = ProviderContainer.test(
-      overrides: [
-        apiClientProvider.overrideWithValue(api),
-        businessIdProvider.overrideWithValue(null),
-      ],
-    );
+  test(
+    'scanning without a chosen business fails loudly rather than silently',
+    () async {
+      api = FakeApiClient();
+      final container = ProviderContainer.test(
+        overrides: [
+          apiClientProvider.overrideWithValue(api),
+          businessIdProvider.overrideWithValue(null),
+        ],
+      );
 
-    await container.read(scanProvider.notifier).lookUp('ABC1234567');
+      await container.read(scanProvider.notifier).lookUp('ABC1234567');
 
-    expect(api.fetchedCardIds, isEmpty);
-    expect(container.read(scanProvider), isA<ScanFailed>());
-  });
+      expect(api.fetchedCardIds, isEmpty);
+      expect(container.read(scanProvider), isA<ScanFailed>());
+    },
+  );
 
-  test('adding stamps renders what the server returned, not a local guess',
-      () async {
-    final container = containerWith();
-    api.card = rewardCard(stampCount: 3);
-    await container.read(scanProvider.notifier).lookUp('ABC1234567');
-    // The server banked a milestone on the way: 3 + 2 would be 5, but it is not.
-    api.actionResult = const CardActionResult(
-      stampCount: 0,
-      stampsRequired: 10,
-      rewardsAvailable: 1,
-    );
+  test(
+    'adding stamps renders what the server returned, not a local guess',
+    () async {
+      final container = containerWith();
+      api.card = rewardCard(stampCount: 3);
+      await container.read(scanProvider.notifier).lookUp('ABC1234567');
+      // The server banked a milestone on the way: 3 + 2 would be 5, but it is not.
+      api.actionResult = const CardActionResult(
+        stampCount: 0,
+        stampsRequired: 10,
+        rewardsAvailable: 1,
+      );
 
-    await container.read(scanProvider.notifier).addStamps(2);
+      await container.read(scanProvider.notifier).addStamps(2);
 
-    final state = container.read(scanProvider) as ScanFound;
-    expect(state.card.stampCount, 0);
-    expect(state.card.rewardsAvailable, 1);
-    expect(api.actions, ['addStamps:2']);
-  });
+      final state = container.read(scanProvider) as ScanFound;
+      expect(state.card.stampCount, 0);
+      expect(state.card.rewardsAvailable, 1);
+      expect(api.actions, ['addStamps:2']);
+    },
+  );
 
-  test("a refused action keeps the card up and shows the server's words",
-      () async {
-    final container = containerWith();
-    api.card = rewardCard(stampCount: 3);
-    await container.read(scanProvider.notifier).lookUp('ABC1234567');
-    api.actionError = ApiException(
-      ApiErrorKind.badRequest,
-      'Stamps not yet complete (3/10)',
-    );
+  test(
+    "a refused action keeps the card up and shows the server's words",
+    () async {
+      final container = containerWith();
+      api.card = rewardCard(stampCount: 3);
+      await container.read(scanProvider.notifier).lookUp('ABC1234567');
+      api.actionError = ApiException(
+        ApiErrorKind.badRequest,
+        'Stamps not yet complete (3/10)',
+      );
 
-    await container.read(scanProvider.notifier).addToRewards();
+      await container.read(scanProvider.notifier).addToRewards();
 
-    final state = container.read(scanProvider) as ScanFound;
-    expect(state.actionError, 'Stamps not yet complete (3/10)');
-    expect(state.card.stampCount, 3);
-    expect(state.busy, isFalse);
-  });
+      final state = container.read(scanProvider) as ScanFound;
+      expect(state.actionError, 'Stamps not yet complete (3/10)');
+      expect(state.card.stampCount, 3);
+      expect(state.busy, isFalse);
+    },
+  );
 
   test('a second action while one is in flight is ignored', () async {
     final container = containerWith();

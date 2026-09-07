@@ -82,22 +82,22 @@ class ScanNotifier extends Notifier<ScanState> {
   }
 
   Future<void> addStamps(int increment) => _act(
-        (api, card, businessId) => api.addStamps(
-          cardId: card.cardId,
-          businessId: businessId,
-          increment: increment,
-        ),
-      );
+    (api, card, businessId) => api.addStamps(
+      cardId: card.cardId,
+      businessId: businessId,
+      increment: increment,
+    ),
+  );
 
   Future<void> addToRewards() => _act(
-        (api, card, businessId) =>
-            api.addToRewards(cardId: card.cardId, businessId: businessId),
-      );
+    (api, card, businessId) =>
+        api.addToRewards(cardId: card.cardId, businessId: businessId),
+  );
 
   Future<void> redeem() => _act(
-        (api, card, businessId) =>
-            api.redeem(cardId: card.cardId, businessId: businessId),
-      );
+    (api, card, businessId) =>
+        api.redeem(cardId: card.cardId, businessId: businessId),
+  );
 
   /// The shape every reward action takes: only from a loaded card, only one at
   /// a time, and the new counts come from the response — never from arithmetic
@@ -117,8 +117,11 @@ class ScanNotifier extends Notifier<ScanState> {
 
     state = current.copyWith(busy: true);
     try {
-      final result =
-          await call(ref.read(apiClientProvider), current.card, businessId);
+      final result = await call(
+        ref.read(apiClientProvider),
+        current.card,
+        businessId,
+      );
       state = ScanFound(
         current.card.withRewardState(
           stampCount: result.stampCount,
@@ -143,7 +146,9 @@ class ScanNotifier extends Notifier<ScanState> {
 
     state = current.copyWith(busy: true);
     try {
-      final result = await ref.read(apiClientProvider).adjustPoints(
+      final result = await ref
+          .read(apiClientProvider)
+          .adjustPoints(
             cardId: current.card.cardId,
             businessId: businessId,
             points: points,
@@ -170,7 +175,9 @@ class ScanNotifier extends Notifier<ScanState> {
 
     state = current.copyWith(busy: true);
     try {
-      final result = await ref.read(apiClientProvider).renewMembership(
+      final result = await ref
+          .read(apiClientProvider)
+          .renewMembership(
             cardId: current.card.cardId,
             businessId: businessId,
             expiryMonths: months,
@@ -190,4 +197,6 @@ class ScanNotifier extends Notifier<ScanState> {
   void reset() => state = const ScanIdle();
 }
 
-final scanProvider = NotifierProvider<ScanNotifier, ScanState>(ScanNotifier.new);
+final scanProvider = NotifierProvider<ScanNotifier, ScanState>(
+  ScanNotifier.new,
+);

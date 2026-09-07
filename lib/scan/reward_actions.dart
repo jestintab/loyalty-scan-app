@@ -63,8 +63,9 @@ class _RewardActionsState extends ConsumerState<RewardActions> {
             child: Text(
               '${card.rewardsAvailable} reward'
               '${card.rewardsAvailable == 1 ? '' : 's'} waiting',
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(color: theme.colorScheme.primary),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.primary,
+              ),
             ),
           ),
         const SizedBox(height: 24),
@@ -73,8 +74,9 @@ class _RewardActionsState extends ConsumerState<RewardActions> {
           children: [
             IconButton.outlined(
               icon: const Icon(Icons.remove),
-              onPressed:
-                  _increment > 1 ? () => setState(() => _increment--) : null,
+              onPressed: _increment > 1
+                  ? () => setState(() => _increment--)
+                  : null,
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -90,7 +92,8 @@ class _RewardActionsState extends ConsumerState<RewardActions> {
         AsyncButton(
           label: 'Add Stamps',
           busy: busy,
-          onPressed: () => ref.read(scanProvider.notifier).addStamps(_increment),
+          onPressed: () =>
+              ref.read(scanProvider.notifier).addStamps(_increment),
         ),
         const SizedBox(height: 8),
         // Not disabled on stampCount >= stampsRequired: on a multi-milestone

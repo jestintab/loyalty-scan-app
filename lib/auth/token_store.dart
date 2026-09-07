@@ -24,30 +24,30 @@ class StoredAuth {
   final String? businessId;
 
   StoredAuth withBusiness(String id) => StoredAuth(
-        token: token,
-        name: name,
-        role: role,
-        businessIds: businessIds,
-        businessId: id,
-      );
+    token: token,
+    name: name,
+    role: role,
+    businessIds: businessIds,
+    businessId: id,
+  );
 
   Map<String, dynamic> toJson() => {
-        'token': token,
-        'name': name,
-        'role': role,
-        'businessIds': businessIds,
-        'businessId': businessId,
-      };
+    'token': token,
+    'name': name,
+    'role': role,
+    'businessIds': businessIds,
+    'businessId': businessId,
+  };
 
   factory StoredAuth.fromJson(Map<String, dynamic> json) => StoredAuth(
-        token: json['token'] as String,
-        name: (json['name'] as String?) ?? '',
-        role: (json['role'] as String?) ?? 'staff',
-        businessIds: ((json['businessIds'] as List?) ?? const [])
-            .map((e) => e as String)
-            .toList(),
-        businessId: json['businessId'] as String?,
-      );
+    token: json['token'] as String,
+    name: (json['name'] as String?) ?? '',
+    role: (json['role'] as String?) ?? 'staff',
+    businessIds: ((json['businessIds'] as List?) ?? const [])
+        .map((e) => e as String)
+        .toList(),
+    businessId: json['businessId'] as String?,
+  );
 }
 
 abstract class TokenStore {
@@ -58,7 +58,7 @@ abstract class TokenStore {
 
 class SecureTokenStore implements TokenStore {
   SecureTokenStore([FlutterSecureStorage? storage])
-      : _storage = storage ?? const FlutterSecureStorage();
+    : _storage = storage ?? const FlutterSecureStorage();
 
   static const _key = 'qwallet_scan_auth';
 

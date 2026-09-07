@@ -36,8 +36,9 @@ class MessageView extends StatelessWidget {
               Text(
                 detail!,
                 textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.outline),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.outline,
+                ),
               ),
             ],
             if (onRetry != null) ...[

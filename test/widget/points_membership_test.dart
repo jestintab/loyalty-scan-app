@@ -16,25 +16,24 @@ LoyaltyCard base({
   String? membershipNumber,
   String? membershipCategory,
   DateTime? membershipExpiry,
-}) =>
-    LoyaltyCard(
-      cardId: 'ABC1234567',
-      businessId: 'biz-1',
-      userName: 'Ali',
-      userEmail: null,
-      userPhone: null,
-      templateType: type,
-      stampCount: 0,
-      rewardsAvailable: 0,
-      stampsRequired: 0,
-      rewardDescription: '',
-      businessName: 'Wake',
-      pointsBalance: pointsBalance,
-      pointsExpiry: null,
-      membershipNumber: membershipNumber,
-      membershipCategory: membershipCategory,
-      membershipExpiry: membershipExpiry,
-    );
+}) => LoyaltyCard(
+  cardId: 'ABC1234567',
+  businessId: 'biz-1',
+  userName: 'Ali',
+  userEmail: null,
+  userPhone: null,
+  templateType: type,
+  stampCount: 0,
+  rewardsAvailable: 0,
+  stampsRequired: 0,
+  rewardDescription: '',
+  businessName: 'Wake',
+  pointsBalance: pointsBalance,
+  pointsExpiry: null,
+  membershipNumber: membershipNumber,
+  membershipCategory: membershipCategory,
+  membershipExpiry: membershipExpiry,
+);
 
 void main() {
   late FakeApiClient api;
@@ -95,8 +94,9 @@ void main() {
       expect(api.actions, ['adjustPoints:-30']);
     });
 
-    testWidgets('a non-numeric amount is refused before any call',
-        (tester) async {
+    testWidgets('a non-numeric amount is refused before any call', (
+      tester,
+    ) async {
       final c = base(type: 'points');
       await pump(tester, c, PointsActions(card: c));
 
@@ -141,8 +141,9 @@ void main() {
       expect(api.actions, ['renewMembership:12']);
     });
 
-    testWidgets('a card with no expiry says so rather than showing a blank',
-        (tester) async {
+    testWidgets('a card with no expiry says so rather than showing a blank', (
+      tester,
+    ) async {
       final c = base(type: 'membership', membershipNumber: 'MBR-0007');
       await pump(tester, c, MembershipActions(card: c));
 
