@@ -3461,6 +3461,10 @@ void main() {
         child: MaterialApp(home: Scaffold(body: child)),
       ),
     );
+    // Same reason as the reward tests: these widgets only render inside
+    // ScanFound, and their buttons are inert without a loaded card.
+    await tester.container().read(scanProvider.notifier).lookUp(c.cardId);
+    await tester.pumpAndSettle();
   }
 
   group('PointsActions', () {

@@ -71,6 +71,53 @@ class LoyaltyCard {
         membershipExpiry: membershipExpiry,
       );
 
+  LoyaltyCard withPointsState({
+    required int pointsBalance,
+    required DateTime? pointsExpiry,
+  }) =>
+      LoyaltyCard(
+        cardId: cardId,
+        businessId: businessId,
+        userName: userName,
+        userEmail: userEmail,
+        userPhone: userPhone,
+        templateType: templateType,
+        stampCount: stampCount,
+        rewardsAvailable: rewardsAvailable,
+        stampsRequired: stampsRequired,
+        rewardDescription: rewardDescription,
+        businessName: businessName,
+        pointsBalance: pointsBalance,
+        pointsExpiry: pointsExpiry,
+        membershipNumber: membershipNumber,
+        membershipCategory: membershipCategory,
+        membershipExpiry: membershipExpiry,
+      );
+
+  LoyaltyCard withMembershipState({
+    required String? membershipNumber,
+    required String? membershipCategory,
+    required DateTime? membershipExpiry,
+  }) =>
+      LoyaltyCard(
+        cardId: cardId,
+        businessId: businessId,
+        userName: userName,
+        userEmail: userEmail,
+        userPhone: userPhone,
+        templateType: templateType,
+        stampCount: stampCount,
+        rewardsAvailable: rewardsAvailable,
+        stampsRequired: stampsRequired,
+        rewardDescription: rewardDescription,
+        businessName: businessName,
+        pointsBalance: pointsBalance,
+        pointsExpiry: pointsExpiry,
+        membershipNumber: membershipNumber,
+        membershipCategory: membershipCategory,
+        membershipExpiry: membershipExpiry,
+      );
+
   factory LoyaltyCard.fromJson(Map<String, dynamic> json) {
     final merchant =
         ((json['merchantData'] as Map?) ?? const {}).cast<String, dynamic>();

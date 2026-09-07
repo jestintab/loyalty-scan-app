@@ -131,6 +131,62 @@ class ScanNotifier extends Notifier<ScanState> {
     }
   }
 
+  /// [points] is signed: the Deduct button passes a negative.
+  Future<void> adjustPoints(int points) async {
+    final current = state;
+    if (current is! ScanFound || current.busy) return;
+    final businessId = ref.read(businessIdProvider);
+    if (businessId == null) {
+      state = const ScanFailed('No shop selected. Sign in again.');
+      return;
+    }
+
+    state = current.copyWith(busy: true);
+    try {
+      final result = await ref.read(apiClientProvider).adjustPoints(
+            cardId: current.card.cardId,
+            businessId: businessId,
+            points: points,
+          );
+      state = ScanFound(
+        current.card.withPointsState(
+          pointsBalance: result.pointsBalance,
+          pointsExpiry: result.pointsExpiry,
+        ),
+      );
+    } on ApiException catch (e) {
+      state = ScanFound(current.card, actionError: e.message);
+    }
+  }
+
+  Future<void> renewMembership(int months) async {
+    final current = state;
+    if (current is! ScanFound || current.busy) return;
+    final businessId = ref.read(businessIdProvider);
+    if (businessId == null) {
+      state = const ScanFailed('No shop selected. Sign in again.');
+      return;
+    }
+
+    state = current.copyWith(busy: true);
+    try {
+      final result = await ref.read(apiClientProvider).renewMembership(
+            cardId: current.card.cardId,
+            businessId: businessId,
+            expiryMonths: months,
+          );
+      state = ScanFound(
+        current.card.withMembershipState(
+          membershipNumber: result.membershipNumber,
+          membershipCategory: result.membershipCategory,
+          membershipExpiry: result.membershipExpiry,
+        ),
+      );
+    } on ApiException catch (e) {
+      state = ScanFound(current.card, actionError: e.message);
+    }
+  }
+
   void reset() => state = const ScanIdle();
 }
 
