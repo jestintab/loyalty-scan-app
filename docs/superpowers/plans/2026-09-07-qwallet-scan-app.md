@@ -1995,6 +1995,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _password = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
+  /// Local, not derived from AuthLoading. That state also means "the app is
+  /// still restoring a session at launch", and a login screen that reads it as
+  /// "signing in" opens with a button that spins and can never be pressed.
+  bool _submitting = false;
+
   @override
   void dispose() {
     _identifier.dispose();
@@ -2004,15 +2009,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    await ref
-        .read(authProvider.notifier)
-        .signIn(_identifier.text.trim(), _password.text);
+    setState(() => _submitting = true);
+    try {
+      await ref
+          .read(authProvider.notifier)
+          .signIn(_identifier.text.trim(), _password.text);
+    } finally {
+      // A successful sign-in routes away and this widget is gone; the guard is
+      // for the refusals, which stay on this screen.
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(authProvider);
-    final busy = state is AuthLoading;
     final error = state is AuthSignedOut ? state.error : null;
 
     return Scaffold(
@@ -2072,8 +2083,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ],
                     const SizedBox(height: 20),
                     FilledButton(
-                      onPressed: busy ? null : _submit,
-                      child: busy
+                      onPressed: _submitting ? null : _submit,
+                      child: _submitting
                           ? const SizedBox(
                               height: 18,
                               width: 18,
@@ -2137,12 +2148,14 @@ class BusinessPickerScreen extends ConsumerWidget {
       ),
       body: ListView.separated(
         itemCount: ids.length,
-        separatorBuilder: (_, __) => const Divider(height: 1),
+        separatorBuilder: (_, _) => const Divider(height: 1),
         itemBuilder: (context, i) {
           final id = ids[i];
           final name = ref.watch(_businessNamesProvider(id));
           return ListTile(
-            title: Text(name.valueOrNull ?? id),
+            // `value`, not `valueOrNull`: Riverpod 3 dropped the latter, and
+            // `value` is already nullable while the lookup is in flight.
+            title: Text(name.value ?? id),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => ref.read(authProvider.notifier).chooseBusiness(id),
           );
@@ -2187,17 +2200,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       };
     },
     routes: [
-      GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
-      GoRoute(path: '/choose-business', builder: (_, __) => const BusinessPickerScreen()),
-      GoRoute(path: '/scan', builder: (_, __) => const ScanScreen()),
-      GoRoute(path: '/logs', builder: (_, __) => const LogsScreen()),
+      GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
+      GoRoute(path: '/choose-business', builder: (_, _) => const BusinessPickerScreen()),
+      GoRoute(path: '/scan', builder: (_, _) => const ScanScreen()),
+      GoRoute(path: '/logs', builder: (_, _) => const LogsScreen()),
     ],
   );
 });
 
 class _AuthListenable extends ChangeNotifier {
   _AuthListenable(Ref ref) {
-    ref.listen(authProvider, (_, __) => notifyListeners());
+    ref.listen(authProvider, (_, _) => notifyListeners());
   }
 }
 ```
