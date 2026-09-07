@@ -116,6 +116,26 @@ class AuthNotifier extends Notifier<AuthState> {
     state = AuthSignedOut(error: reason);
   }
 
+  /// The one place an expired session is acted on.
+  ///
+  /// The token lasts seven days and there is no refresh endpoint, so every
+  /// device hits this eventually. Signing out flips `authProvider`, which the
+  /// router is listening to, so the staff member lands on the login screen with
+  /// the reason showing — rather than reading "your session has expired" on a
+  /// screen that offers no way to fix it.
+  ///
+  /// Deliberately only 401. A 403 means this business is not theirs, which is a
+  /// different problem, and a 400 is a refused action mid-transaction — neither
+  /// is a reason to throw away a working session.
+  /// Returns a Future so callers can await the sign-out before reporting their
+  /// own work finished — signOut clears the keychain, and a caller that does
+  /// not wait can settle while the token is still on disk.
+  Future<void> handleApiError(ApiException e) async {
+    if (e.kind == ApiErrorKind.unauthorized) {
+      await signOut(reason: e.message);
+    }
+  }
+
   /// The token for the HTTP layer, or null when signed out.
   String? get token => switch (state) {
     AuthNeedsBusiness(:final auth) => auth.token,

@@ -4535,9 +4535,12 @@ In `lib/auth/auth_notifier.dart`, inside `AuthNotifier`:
   /// Deliberately only 401. A 403 means this business is not theirs, which is a
   /// different problem, and a 400 is a refused action mid-transaction — neither
   /// is a reason to throw away a working session.
-  void handleApiError(ApiException e) {
+  /// Returns a Future so callers can await the sign-out before reporting their
+  /// own work finished — signOut clears the keychain, and a caller that does
+  /// not wait can settle while the token is still on disk.
+  Future<void> handleApiError(ApiException e) async {
     if (e.kind == ApiErrorKind.unauthorized) {
-      signOut(reason: e.message);
+      await signOut(reason: e.message);
     }
   }
 ```
@@ -4549,14 +4552,14 @@ In `lib/scan/scan_notifier.dart`, each of the three
 
 ```dart
     } on ApiException catch (e) {
-      ref.read(authProvider.notifier).handleApiError(e);
+      await ref.read(authProvider.notifier).handleApiError(e);
       state = ScanFailed(e.message);          // in lookUp
     }
 ```
 
 ```dart
     } on ApiException catch (e) {
-      ref.read(authProvider.notifier).handleApiError(e);
+      await ref.read(authProvider.notifier).handleApiError(e);
       state = ScanFound(current.card, actionError: e.message);   // in _act,
     }                                          // adjustPoints, renewMembership
 ```
@@ -4565,14 +4568,14 @@ In `lib/logs/logs_notifier.dart`, both catch blocks:
 
 ```dart
     } on ApiException catch (e) {
-      ref.read(authProvider.notifier).handleApiError(e);
+      await ref.read(authProvider.notifier).handleApiError(e);
       state = LogsState(error: e.message);      // in loadFirstPage
     }
 ```
 
 ```dart
     } on ApiException catch (e) {
-      ref.read(authProvider.notifier).handleApiError(e);
+      await ref.read(authProvider.notifier).handleApiError(e);
       state = current.copyWith(loadingMore: false, error: e.message);  // loadMore
     }
 ```

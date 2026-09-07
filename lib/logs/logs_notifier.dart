@@ -61,6 +61,7 @@ class LogsNotifier extends Notifier<LogsState> {
         cursor: page.nextCursor,
       );
     } on ApiException catch (e) {
+      await ref.read(authProvider.notifier).handleApiError(e);
       state = LogsState(error: e.message);
     }
   }
@@ -85,6 +86,7 @@ class LogsNotifier extends Notifier<LogsState> {
         cursor: page.nextCursor,
       );
     } on ApiException catch (e) {
+      await ref.read(authProvider.notifier).handleApiError(e);
       // The rows already loaded stay: a failed page two must not empty the
       // screen.
       state = current.copyWith(loadingMore: false, error: e.message);

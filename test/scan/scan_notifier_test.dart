@@ -6,6 +6,7 @@ import 'package:qwallet_scan/api/api_client.dart';
 import 'package:qwallet_scan/api/api_exception.dart';
 import 'package:qwallet_scan/api/models/loyalty_card.dart';
 import 'package:qwallet_scan/auth/auth_notifier.dart';
+import 'package:qwallet_scan/auth/token_store.dart';
 import 'package:qwallet_scan/scan/scan_notifier.dart';
 
 import '../support/fake_api_client.dart';
@@ -206,5 +207,65 @@ void main() {
       (container.read(scanProvider) as ScanFound).card.rewardsAvailable,
       0,
     );
+  });
+
+  test('a 401 during a lookup signs the user out', () async {
+    api = FakeApiClient();
+    final store = FakeTokenStore();
+    store.stored = const StoredAuth(
+      token: 'jwt',
+      name: 'Sam',
+      role: 'staff',
+      businessIds: ['biz-1'],
+      businessId: 'biz-1',
+    );
+    final container = ProviderContainer.test(
+      overrides: [
+        apiClientProvider.overrideWithValue(api),
+        tokenStoreProvider.overrideWithValue(store),
+      ],
+    );
+    await container.read(authProvider.notifier).restore();
+    api.cardError = ApiException(
+      ApiErrorKind.unauthorized,
+      'Your session has expired. Please sign in again.',
+    );
+
+    await container.read(scanProvider.notifier).lookUp('ABC1234567');
+
+    expect(container.read(authProvider), isA<AuthSignedOut>());
+    expect(store.clearCount, 1);
+  });
+
+  test('a 400 does not sign anyone out', () async {
+    // Only an expired token ends the session. A refused action is not a reason
+    // to make someone sign in again mid-transaction.
+    api = FakeApiClient();
+    final store = FakeTokenStore();
+    store.stored = const StoredAuth(
+      token: 'jwt',
+      name: 'Sam',
+      role: 'staff',
+      businessIds: ['biz-1'],
+      businessId: 'biz-1',
+    );
+    final container = ProviderContainer.test(
+      overrides: [
+        apiClientProvider.overrideWithValue(api),
+        tokenStoreProvider.overrideWithValue(store),
+      ],
+    );
+    await container.read(authProvider.notifier).restore();
+    api.card = rewardCard();
+    await container.read(scanProvider.notifier).lookUp('ABC1234567');
+    api.actionError = ApiException(
+      ApiErrorKind.badRequest,
+      'Stamps not yet complete (3/10)',
+    );
+
+    await container.read(scanProvider.notifier).addToRewards();
+
+    expect(container.read(authProvider), isA<AuthSignedIn>());
+    expect(store.clearCount, 0);
   });
 }

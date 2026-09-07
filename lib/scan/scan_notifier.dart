@@ -75,6 +75,7 @@ class ScanNotifier extends Notifier<ScanState> {
           .fetchCard(cardId: cardId, businessId: businessId);
       state = ScanFound(card);
     } on ApiException catch (e) {
+      await ref.read(authProvider.notifier).handleApiError(e);
       state = ScanFailed(e.message);
     } finally {
       _inFlight = false;
@@ -130,6 +131,7 @@ class ScanNotifier extends Notifier<ScanState> {
         ),
       );
     } on ApiException catch (e) {
+      await ref.read(authProvider.notifier).handleApiError(e);
       state = ScanFound(current.card, actionError: e.message);
     }
   }
@@ -160,6 +162,7 @@ class ScanNotifier extends Notifier<ScanState> {
         ),
       );
     } on ApiException catch (e) {
+      await ref.read(authProvider.notifier).handleApiError(e);
       state = ScanFound(current.card, actionError: e.message);
     }
   }
@@ -190,6 +193,7 @@ class ScanNotifier extends Notifier<ScanState> {
         ),
       );
     } on ApiException catch (e) {
+      await ref.read(authProvider.notifier).handleApiError(e);
       state = ScanFound(current.card, actionError: e.message);
     }
   }

@@ -4,6 +4,7 @@ import 'package:qwallet_scan/api/api_client.dart';
 import 'package:qwallet_scan/api/api_exception.dart';
 import 'package:qwallet_scan/api/models/scan_log_entry.dart';
 import 'package:qwallet_scan/auth/auth_notifier.dart';
+import 'package:qwallet_scan/auth/token_store.dart';
 import 'package:qwallet_scan/logs/logs_notifier.dart';
 
 import '../support/fake_api_client.dart';
@@ -125,5 +126,32 @@ void main() {
     final state = container.read(logsProvider);
     expect(state.entries, hasLength(1));
     expect(state.error, isNotNull);
+  });
+
+  test('a 401 loading the log signs the user out', () async {
+    api = FakeApiClient();
+    final store = FakeTokenStore();
+    store.stored = const StoredAuth(
+      token: 'jwt',
+      name: 'Sam',
+      role: 'staff',
+      businessIds: ['biz-1'],
+      businessId: 'biz-1',
+    );
+    final container = ProviderContainer.test(
+      overrides: [
+        apiClientProvider.overrideWithValue(api),
+        tokenStoreProvider.overrideWithValue(store),
+      ],
+    );
+    await container.read(authProvider.notifier).restore();
+    api.logError = ApiException(
+      ApiErrorKind.unauthorized,
+      'Your session has expired. Please sign in again.',
+    );
+
+    await container.read(logsProvider.notifier).loadFirstPage();
+
+    expect(container.read(authProvider), isA<AuthSignedOut>());
   });
 }
