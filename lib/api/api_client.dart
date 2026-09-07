@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
+import '../auth/auth_notifier.dart';
 import 'api_exception.dart';
 import 'models/loyalty_card.dart';
 import 'models/scan_log_entry.dart';
@@ -241,8 +242,17 @@ class HttpApiClient implements ApiClient {
   }
 }
 
-/// Overridden in tests. Wired to a real client with a live token reader in
-/// Task 4, once the token store exists.
+const _baseUrl = String.fromEnvironment(
+  'API_BASE_URL',
+  defaultValue: 'https://api.qwallet.me',
+);
+
 final apiClientProvider = Provider<ApiClient>((ref) {
-  throw UnimplementedError('apiClientProvider is wired in Task 4');
+  // read, not watch: rebuilding the client on every auth change would drop
+  // in-flight requests. The reader closes over the notifier, so the token it
+  // returns is always current.
+  return HttpApiClient(
+    baseUrl: _baseUrl,
+    tokenReader: () => ref.read(authProvider.notifier).token,
+  );
 });
