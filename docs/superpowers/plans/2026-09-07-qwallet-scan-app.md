@@ -107,9 +107,14 @@ Run from `~/Desktop/Learn/Loyalty/loyalty-scan-app` (the repo already exists and
 holds `docs/` and `.gitignore` — `flutter create` fills in around them):
 
 ```bash
-fvm use 3.44.8
+fvm use 3.44.8 --force --skip-pub-get --skip-setup
 fvm flutter create --org me.qwallet --project-name qwallet_scan --platforms=android,ios .
 ```
+
+`--force` is not optional here. `fvm use` validates that it is being run inside
+a Flutter project, and in an empty directory it stops on an interactive prompt
+that a non-interactive shell will hang on forever. `--skip-pub-get` for the same
+reason: there is no pubspec to resolve until the next line creates one.
 
 - [ ] **Step 2: Add the dependencies**
 
