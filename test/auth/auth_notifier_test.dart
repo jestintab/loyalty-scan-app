@@ -106,18 +106,36 @@ void main() {
     },
   );
 
-  test('bad credentials surface the API message', () async {
-    final container = containerWith();
-    api.loginError = ApiException(
-      ApiErrorKind.unauthorized,
-      'Invalid credentials',
-    );
+  // Built through fromResponse rather than by hand: a 401 is the only thing
+  // the API returns for a wrong password, and hand-writing the message here is
+  // what let the session-expiry wording reach the login screen unnoticed.
+  test(
+    'a refused sign-in blames the credentials, not an expired session',
+    () async {
+      final container = containerWith();
+      api.loginError = ApiException.fromResponse(
+        401,
+        '{"error":"Invalid credentials"}',
+      );
 
-    await container.read(authProvider.notifier).signIn('sam', 'wrong');
+      await container.read(authProvider.notifier).signIn('sam', 'wrong');
+
+      final error = (container.read(authProvider) as AuthSignedOut).error;
+      expect(error, isNot(contains('session')));
+      expect(error, contains('password'));
+    },
+  );
+
+  test('an expired token still reads as an expired session', () async {
+    final container = containerWith();
+
+    await container
+        .read(authProvider.notifier)
+        .handleApiError(ApiException.fromResponse(401, ''));
 
     expect(
       (container.read(authProvider) as AuthSignedOut).error,
-      'Invalid credentials',
+      'Your session has expired. Please sign in again.',
     );
   });
 

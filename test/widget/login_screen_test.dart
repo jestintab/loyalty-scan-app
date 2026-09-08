@@ -61,9 +61,11 @@ void main() {
     tester,
   ) async {
     await pumpLogin(tester);
-    api.loginError = ApiException(
-      ApiErrorKind.unauthorized,
-      'Invalid credentials',
+    // fromResponse, not a hand-written message: the screen has to show what a
+    // real refusal actually produces.
+    api.loginError = ApiException.fromResponse(
+      401,
+      '{"error":"Invalid credentials"}',
     );
 
     await tester.enterText(find.byKey(const Key('identifier')), 'sam');
@@ -71,7 +73,10 @@ void main() {
     await tester.tap(find.text('Sign in'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Invalid credentials'), findsOneWidget);
+    expect(
+      find.textContaining('Check the email or mobile number'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('empty fields are refused without calling the API', (

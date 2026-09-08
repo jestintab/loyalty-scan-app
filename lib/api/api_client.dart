@@ -241,9 +241,13 @@ class HttpApiClient implements ApiClient {
   }
 }
 
+// app.qwallet.me, not api.qwallet.me: the API and the dashboard are served
+// from the same host — /health there answers with the database status, and
+// NEXT_PUBLIC_API_URL in the dashboard points at it too. There is no
+// api.qwallet.me; it does not resolve.
 const _baseUrl = String.fromEnvironment(
   'API_BASE_URL',
-  defaultValue: 'https://api.qwallet.me',
+  defaultValue: 'https://app.qwallet.me',
 );
 
 final apiClientProvider = Provider<ApiClient>((ref) {

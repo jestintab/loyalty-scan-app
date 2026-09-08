@@ -93,7 +93,16 @@ class AuthNotifier extends Notifier<AuthState> {
       await _store.write(auth);
       state = single == null ? AuthNeedsBusiness(auth) : AuthSignedIn(auth);
     } on ApiException catch (e) {
-      state = AuthSignedOut(error: e.message);
+      // A 401 on the sign-in call itself is a wrong password, not a stale
+      // token, and the generic wording sends people in a circle: they are told
+      // their session expired and to sign in again, which is what they were
+      // doing. Only this call can tell the two apart, so it supplies the copy.
+      state = AuthSignedOut(
+        error: e.kind == ApiErrorKind.unauthorized
+            ? "We couldn't sign you in. Check the email or mobile number and "
+                  'password.'
+            : e.message,
+      );
     }
   }
 
