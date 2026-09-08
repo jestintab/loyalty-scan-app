@@ -1,4 +1,4 @@
-package me.qwallet.qwallet_scan
+package me.qwallet.scanner
 
 import io.flutter.embedding.android.FlutterActivity
 
