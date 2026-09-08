@@ -5,3 +5,10 @@ build/
 .idea/
 .DS_Store
 ios/Pods/
+
+# The upload signing key lives in this directory. android/.gitignore does not
+# reach here, and a key committed once is a key that has to be rotated — which
+# for a published app means a new application id and stranded installs.
+*.jks
+*.keystore
+key.properties

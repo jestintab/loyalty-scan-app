@@ -41,11 +41,12 @@ back it up, and keep it out of the repository.
 debug keys so the app can be put on a device. `flutter build appbundle`, which
 is what gets uploaded, refuses to build until the steps below are done.
 
-1. Generate the upload key. Answer the prompts; the passwords are yours to
-   choose and to keep.
+1. Generate the upload key into the root of this checkout. Answer the prompts;
+   the passwords are yours to choose and to keep. `keytool` ships with Android
+   Studio's bundled JDK if it is not on your PATH:
 
    ```
-   keytool -genkey -v -keystore ~/qwallet-upload-key.jks \
+   keytool -genkey -v -keystore qwallet-upload-key.jks \
      -keyalg RSA -keysize 2048 -validity 10000 -alias upload
    ```
 
@@ -55,11 +56,16 @@ is what gets uploaded, refuses to build until the steps below are done.
    storePassword=<the store password from step 1>
    keyPassword=<the key password from step 1>
    keyAlias=upload
-   storeFile=/Users/<you>/qwallet-upload-key.jks
+   storeFile=../../qwallet-upload-key.jks
    ```
 
-   `android/.gitignore` already excludes `key.properties` and every `*.jks`.
-   Keep it that way: whoever holds these two files can publish updates as you.
+   The path is relative to `android/app/`, which is where Gradle resolves it
+   from, so it works on any machine that has the key in the same place.
+
+   Both files are excluded by `.gitignore` — `*.jks` and `key.properties` at
+   the root, and again under `android/`. Keep it that way: whoever holds these
+   two can publish updates as you, and a key committed once has to be rotated,
+   which for a published app means a new application id and stranded installs.
 
 3. Build the bundle:
 
