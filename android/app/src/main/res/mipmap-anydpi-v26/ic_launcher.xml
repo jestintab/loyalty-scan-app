@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 8 and up composes the icon itself: it masks these two layers to
+     whatever shape the launcher uses, and shifts them against each other on
+     scroll. That is why the ground is a flat colour rather than part of the
+     bitmap, and why the mark sits well inside its canvas.
+
+     The monochrome layer is what Android 13's themed icons draw, tinted to the
+     user's wallpaper palette. Without it the launcher falls back to shrinking
+     the whole icon inside a grey circle. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+    <monochrome android:drawable="@mipmap/ic_launcher_monochrome" />
+</adaptive-icon>

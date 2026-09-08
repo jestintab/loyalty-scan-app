@@ -34,7 +34,7 @@ class _QwalletScanAppState extends ConsumerState<QwalletScanApp> {
     }
 
     return MaterialApp.router(
-      title: 'Qwallet Scan',
+      title: 'Qwallet Scanner',
       theme: qwalletLight,
       // A staff phone is on whatever the person set it to, and a till app that
       // blazes white through a late shift is the one they turn the brightness
