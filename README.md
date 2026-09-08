@@ -1,17 +1,74 @@
-# qwallet_scan
+# Qwallet Scanner
 
-A new Flutter project.
+The counter app. Shop staff and owners sign in, scan a customer's loyalty card,
+stamp or redeem it, and read the day's scans. Three card types are supported —
+reward, points and membership — and the scan log covers the whole business, not
+just the person holding the phone.
 
-## Getting Started
+It talks to `loyalty-pass-api` and does nothing offline: an action either
+reaches the server or reports that it did not.
 
-This project is a starting point for a Flutter application.
+## Running it
 
-A few resources to get you started if this is your first Flutter project:
+```
+fvm flutter run
+```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+The API defaults to `https://app.qwallet.me`. Point it somewhere else with:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```
+fvm flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5599
+```
+
+`10.0.2.2` is how the Android emulator reaches the host machine. Plain http is
+allowed in debug builds only; release builds block it.
+
+```
+fvm flutter test        # unit and widget
+fvm flutter analyze
+```
+
+`integration_test/walkthrough_test.dart` drives every screen on a real device
+against a real API, printing `SHOT-READY:` markers for screenshotting.
+
+## Release signing
+
+The Play Store rejects an upload signed with debug keys, and the key you first
+publish with is the only key that can ever ship an update. Generate it once,
+back it up, and keep it out of the repository.
+
+`flutter build apk --release` works without any of this — it falls back to
+debug keys so the app can be put on a device. `flutter build appbundle`, which
+is what gets uploaded, refuses to build until the steps below are done.
+
+1. Generate the upload key. Answer the prompts; the passwords are yours to
+   choose and to keep.
+
+   ```
+   keytool -genkey -v -keystore ~/qwallet-upload-key.jks \
+     -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+   ```
+
+2. Create `android/key.properties`, pointing at it:
+
+   ```
+   storePassword=<the store password from step 1>
+   keyPassword=<the key password from step 1>
+   keyAlias=upload
+   storeFile=/Users/<you>/qwallet-upload-key.jks
+   ```
+
+   `android/.gitignore` already excludes `key.properties` and every `*.jks`.
+   Keep it that way: whoever holds these two files can publish updates as you.
+
+3. Build the bundle:
+
+   ```
+   fvm flutter build appbundle --release
+   ```
+
+**Back the keystore up somewhere durable, off this machine.** Losing it means
+the app can never be updated again — the listing has to be republished under a
+new application id, and existing installs never see another update. A password
+manager's secure-file store or an encrypted backup both work; a folder on one
+laptop does not.
