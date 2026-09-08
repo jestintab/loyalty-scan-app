@@ -36,8 +36,8 @@ void main() {
     await settle(tester);
 
     // A previous run's token is still in the keychain — which is the session
-    // persistence working, but it starts this walk on the scan screen. Sign
-    // out so the walk always begins where it means to.
+    // persistence working, but it starts this walk on the dashboard. Sign out
+    // so the walk always begins where it means to.
     if (find.byKey(const Key('identifier')).evaluate().isEmpty) {
       await tester.tap(find.byIcon(Icons.logout));
       await settle(tester);
@@ -52,10 +52,16 @@ void main() {
 
     await tester.tap(find.text('Sign in'));
     await settle(tester);
+    debugPrint('SHOT-READY: home');
+    await tester.pump(_hold);
+
+    // ---- 2. The dashboard opens the scanner ----
+    await tester.tap(find.text('Start scanning'));
+    await settle(tester);
     debugPrint('SHOT-READY: scan');
     await tester.pump(_hold);
 
-    // ---- 2. Scan screen: look the card up by id ----
+    // ---- 3. Scan screen: look the card up by id ----
     await tester.enterText(find.byType(TextField).last, 'WAKE001');
     await settle(tester);
     await tester.tap(find.text('Look up'));
@@ -63,14 +69,20 @@ void main() {
     debugPrint('SHOT-READY: card');
     await tester.pump(_hold);
 
-    // ---- 3. The card, with its three reward actions ----
+    // ---- 4. The card, with its three reward actions ----
     await tester.tap(find.byIcon(Icons.add));
     await settle(tester);
     debugPrint('SHOT-READY: card-stamped');
     await tester.pump(_hold);
 
-    // ---- 4. The scan log ----
-    await tester.tap(find.byIcon(Icons.receipt_long));
+    // ---- 5. Stamping reports and hands the till back to the dashboard ----
+    await tester.tap(find.text('Add Stamps'));
+    await settle(tester);
+    debugPrint('SHOT-READY: stamped-home');
+    await tester.pump(_hold);
+
+    // ---- 6. The scan log ----
+    await tester.tap(find.text('Full scan log'));
     await settle(tester);
     debugPrint('SHOT-READY: log');
     await tester.pump(_hold);

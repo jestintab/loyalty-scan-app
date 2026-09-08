@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:qwallet_scan/api/api_client.dart';
+import 'package:qwallet_scan/api/api_exception.dart';
 import 'package:qwallet_scan/api/models/loyalty_card.dart';
 import 'package:qwallet_scan/auth/auth_notifier.dart';
+import 'package:qwallet_scan/scan/recent_actions.dart';
 import 'package:qwallet_scan/scan/reward_actions.dart';
 import 'package:qwallet_scan/scan/scan_notifier.dart';
 
@@ -40,8 +43,22 @@ void main() {
           apiClientProvider.overrideWithValue(api),
           businessIdProvider.overrideWithValue('biz-1'),
         ],
-        child: MaterialApp(
-          home: Scaffold(body: RewardActions(card: c)),
+        // MaterialApp.router, not MaterialApp: a finished action sends the
+        // till back to /home, so these buttons need somewhere to send it.
+        child: MaterialApp.router(
+          routerConfig: GoRouter(
+            routes: [
+              GoRoute(
+                path: '/',
+                builder: (_, _) => Scaffold(body: RewardActions(card: c)),
+              ),
+              GoRoute(
+                path: '/home',
+                builder: (_, _) =>
+                    const Scaffold(body: Center(child: Text('Dashboard'))),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -133,5 +150,91 @@ void main() {
     await tester.pump();
 
     expect(find.text('1'), findsOneWidget);
+  });
+
+  testWidgets('a finished stamp says so and hands back the dashboard', (
+    tester,
+  ) async {
+    await pump(tester, card(stampCount: 3));
+    api.actionResult = const CardActionResult(
+      stampCount: 4,
+      stampsRequired: 10,
+      rewardsAvailable: 0,
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Add Stamps'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Stamped. 4 of 10.'), findsOneWidget);
+    expect(find.text('Dashboard'), findsOneWidget);
+  });
+
+  testWidgets('a refusal keeps the card on screen, with the reason', (
+    tester,
+  ) async {
+    await pump(tester, card(stampCount: 3));
+    api.actionError = ApiException.fromResponse(
+      400,
+      '{"error":"This card has expired"}',
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Add Stamps'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('This card has expired'), findsOneWidget);
+    expect(find.text('Dashboard'), findsNothing, reason: 'nothing happened');
+  });
+
+  testWidgets('stamping the same card twice in a minute asks first', (
+    tester,
+  ) async {
+    await pump(tester, card(stampCount: 3));
+    tester
+        .container()
+        .read(recentActionsProvider.notifier)
+        .record('ABC1234567', CardAction.stamps);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Add Stamps'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Already done'), findsOneWidget);
+    expect(find.textContaining('added stamps to this card'), findsOneWidget);
+    expect(api.actions, isEmpty, reason: 'nothing until it is confirmed');
+  });
+
+  testWidgets('backing out of the repeat warning does nothing at all', (
+    tester,
+  ) async {
+    await pump(tester, card(stampCount: 3));
+    tester
+        .container()
+        .read(recentActionsProvider.notifier)
+        .record('ABC1234567', CardAction.stamps);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Add Stamps'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(api.actions, isEmpty);
+    expect(find.text('Dashboard'), findsNothing);
+  });
+
+  testWidgets('a different card is not caught by the warning', (tester) async {
+    await pump(tester, card(stampCount: 3));
+    tester
+        .container()
+        .read(recentActionsProvider.notifier)
+        .record('SOMEONEELSE', CardAction.stamps);
+    api.actionResult = const CardActionResult(
+      stampCount: 4,
+      stampsRequired: 10,
+      rewardsAvailable: 0,
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Add Stamps'));
+    await tester.pumpAndSettle();
+
+    expect(api.actions, ['addStamps:1']);
   });
 }

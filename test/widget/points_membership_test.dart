@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:qwallet_scan/api/api_client.dart';
 import 'package:qwallet_scan/api/models/loyalty_card.dart';
 import 'package:qwallet_scan/auth/auth_notifier.dart';
@@ -47,7 +48,23 @@ void main() {
           apiClientProvider.overrideWithValue(api),
           businessIdProvider.overrideWithValue('biz-1'),
         ],
-        child: MaterialApp(home: Scaffold(body: child)),
+        // MaterialApp.router, not MaterialApp: a finished action sends the
+        // till back to /home, so these buttons need somewhere to send it.
+        child: MaterialApp.router(
+          routerConfig: GoRouter(
+            routes: [
+              GoRoute(
+                path: '/',
+                builder: (_, _) => Scaffold(body: child),
+              ),
+              GoRoute(
+                path: '/home',
+                builder: (_, _) =>
+                    const Scaffold(body: Center(child: Text('Dashboard'))),
+              ),
+            ],
+          ),
+        ),
       ),
     );
     // Same reason as the reward tests: these widgets only render inside

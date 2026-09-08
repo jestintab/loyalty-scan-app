@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
-import '../auth/auth_notifier.dart';
 import '../ui/message_view.dart';
 import 'card_result_view.dart';
 import 'scan_notifier.dart';
@@ -29,21 +27,10 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
     final state = ref.watch(scanProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Scan'),
-        actions: [
-          IconButton(
-            tooltip: 'Scan log',
-            icon: const Icon(Icons.receipt_long),
-            onPressed: () => context.push('/logs'),
-          ),
-          IconButton(
-            tooltip: 'Sign out',
-            icon: const Icon(Icons.logout),
-            onPressed: () => ref.read(authProvider.notifier).signOut(),
-          ),
-        ],
-      ),
+      // No actions: the scan log and sign-out live on the home screen this was
+      // opened from, one back-tap away, and a till screen with three things to
+      // press is a till screen someone presses the wrong one on.
+      appBar: AppBar(title: const Text('Scan')),
       body: switch (state) {
         ScanIdle() => _camera(),
         ScanLoading() => const Center(child: CircularProgressIndicator()),

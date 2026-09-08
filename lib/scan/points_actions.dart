@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/models/loyalty_card.dart';
 import '../ui/async_button.dart';
+import 'action_flow.dart';
+import 'recent_actions.dart';
 import 'scan_notifier.dart';
 
 class PointsActions extends ConsumerStatefulWidget {
@@ -25,14 +27,27 @@ class _PointsActionsState extends ConsumerState<PointsActions> {
     super.dispose();
   }
 
-  void _submit({required bool deduct}) {
+  Future<void> _submit({required bool deduct}) async {
     final parsed = int.tryParse(_amount.text.trim());
     if (parsed == null || parsed <= 0) {
       setState(() => _localError = 'Enter a number of points');
       return;
     }
     setState(() => _localError = null);
-    ref.read(scanProvider.notifier).adjustPoints(deduct ? -parsed : parsed);
+
+    await runCardAction(
+      context,
+      ref,
+      cardId: widget.card.cardId,
+      action: CardAction.points,
+      proceedLabel: deduct ? 'Deduct anyway' : 'Add anyway',
+      run: () => ref
+          .read(scanProvider.notifier)
+          .adjustPoints(deduct ? -parsed : parsed),
+      confirmation: (card) =>
+          '${deduct ? 'Deducted' : 'Added'} $parsed points. '
+          'Balance ${card.pointsBalance}.',
+    );
   }
 
   @override

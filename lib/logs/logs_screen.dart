@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/models/scan_log_entry.dart';
 import '../ui/message_view.dart';
 import 'logs_notifier.dart';
+import 'scan_log_format.dart';
+import 'scan_log_tile.dart';
 
 class LogsScreen extends ConsumerStatefulWidget {
   const LogsScreen({super.key});
@@ -82,20 +84,7 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
             child: Text(label, style: Theme.of(context).textTheme.labelLarge),
           ),
-          _EntryRow(:final entry) => ListTile(
-            leading: Icon(
-              entry.type == ScanLogType.redemption
-                  ? Icons.redeem
-                  : Icons.check_circle_outline,
-            ),
-            title: Text(entry.customerName ?? 'Customer'),
-            subtitle: Text(
-              '${entry.type == ScanLogType.redemption ? 'Reward redeemed' : '+${entry.stampsAdded} stamps'}'
-              ' · ${entry.stampsBefore} → ${entry.stampsAfter}'
-              '${entry.staffName != null ? ' · ${entry.staffName}' : ''}',
-            ),
-            trailing: Text(_formatTime(entry.loggedAt.toLocal())),
-          ),
+          _EntryRow(:final entry) => ScanLogTile(entry: entry),
         };
       },
     );
@@ -125,30 +114,10 @@ List<_Row> _withDayHeaders(List<ScanLogEntry> entries) {
     final local = entry.loggedAt.toLocal();
     final day = '${local.year}-${local.month}-${local.day}';
     if (day != lastDay) {
-      rows.add(_DayHeader(_formatDay(local)));
+      rows.add(_DayHeader(formatDay(local)));
       lastDay = day;
     }
     rows.add(_EntryRow(entry));
   }
   return rows;
 }
-
-String _formatDay(DateTime d) {
-  final now = DateTime.now();
-  final isToday =
-      d.year == now.year && d.month == now.month && d.day == now.day;
-  if (isToday) return 'Today';
-
-  final yesterday = now.subtract(const Duration(days: 1));
-  final isYesterday =
-      d.year == yesterday.year &&
-      d.month == yesterday.month &&
-      d.day == yesterday.day;
-  if (isYesterday) return 'Yesterday';
-
-  return '${d.day.toString().padLeft(2, '0')}/'
-      '${d.month.toString().padLeft(2, '0')}/${d.year}';
-}
-
-String _formatTime(DateTime d) =>
-    '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';

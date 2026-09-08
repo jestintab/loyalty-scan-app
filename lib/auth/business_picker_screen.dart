@@ -1,19 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../api/api_client.dart';
 import 'auth_notifier.dart';
-
-/// Names for the ids in the token, best-effort. A failed lookup falls back to
-/// the id: not being able to read a name must not lock someone out of scanning.
-final _businessNamesProvider = FutureProvider.autoDispose
-    .family<String, String>((ref, businessId) async {
-      try {
-        return await ref.read(apiClientProvider).fetchBusinessName(businessId);
-      } catch (_) {
-        return businessId;
-      }
-    });
+import 'business_name.dart';
 
 class BusinessPickerScreen extends ConsumerWidget {
   const BusinessPickerScreen({super.key});
@@ -42,7 +31,7 @@ class BusinessPickerScreen extends ConsumerWidget {
         separatorBuilder: (_, _) => const Divider(height: 1),
         itemBuilder: (context, i) {
           final id = ids[i];
-          final name = ref.watch(_businessNamesProvider(id));
+          final name = ref.watch(businessNameProvider(id));
           return ListTile(
             title: Text(name.value ?? id),
             trailing: const Icon(Icons.chevron_right),

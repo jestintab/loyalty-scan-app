@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/models/loyalty_card.dart';
 import '../ui/async_button.dart';
+import 'action_flow.dart';
+import 'recent_actions.dart';
 import 'scan_notifier.dart';
 
 class MembershipActions extends ConsumerStatefulWidget {
@@ -60,8 +62,16 @@ class _MembershipActionsState extends ConsumerState<MembershipActions> {
         AsyncButton(
           label: 'Renew',
           busy: busy,
-          onPressed: () =>
-              ref.read(scanProvider.notifier).renewMembership(_months),
+          onPressed: () => runCardAction(
+            context,
+            ref,
+            cardId: widget.card.cardId,
+            action: CardAction.membership,
+            proceedLabel: 'Renew anyway',
+            run: () => ref.read(scanProvider.notifier).renewMembership(_months),
+            confirmation: (_) =>
+                'Membership renewed by $_months month${_months == 1 ? '' : 's'}.',
+          ),
         ),
         if (error != null) ...[
           const SizedBox(height: 12),

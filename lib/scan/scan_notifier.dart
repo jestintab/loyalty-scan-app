@@ -5,6 +5,7 @@ import '../api/api_exception.dart';
 import '../api/models/loyalty_card.dart';
 import '../auth/auth_notifier.dart';
 import 'card_id_parser.dart';
+import 'recent_actions.dart';
 
 sealed class ScanState {
   const ScanState();
@@ -82,7 +83,8 @@ class ScanNotifier extends Notifier<ScanState> {
     }
   }
 
-  Future<void> addStamps(int increment) => _act(
+  Future<LoyaltyCard?> addStamps(int increment) => _act(
+    CardAction.stamps,
     (api, card, businessId) => api.addStamps(
       cardId: card.cardId,
       businessId: businessId,
@@ -90,12 +92,14 @@ class ScanNotifier extends Notifier<ScanState> {
     ),
   );
 
-  Future<void> addToRewards() => _act(
+  Future<LoyaltyCard?> addToRewards() => _act(
+    CardAction.addReward,
     (api, card, businessId) =>
         api.addToRewards(cardId: card.cardId, businessId: businessId),
   );
 
-  Future<void> redeem() => _act(
+  Future<LoyaltyCard?> redeem() => _act(
+    CardAction.redeem,
     (api, card, businessId) =>
         api.redeem(cardId: card.cardId, businessId: businessId),
   );
@@ -104,16 +108,22 @@ class ScanNotifier extends Notifier<ScanState> {
   /// a time, and the new counts come from the response — never from arithmetic
   /// here. A multi-milestone card can bank a reward and reset to zero on an
   /// ordinary stamp, which no local guess would predict.
-  Future<void> _act(
+  ///
+  /// Returns the updated card, or null if the action did not land — the button
+  /// needs to tell the two apart, since only a success reports and leaves the
+  /// screen. Recording the action for the repeat warning happens here rather
+  /// than at the button, so a refusal is never remembered as something done.
+  Future<LoyaltyCard?> _act(
+    CardAction action,
     Future<CardActionResult> Function(ApiClient, LoyaltyCard, String) call,
   ) async {
     final current = state;
-    if (current is! ScanFound || current.busy) return;
+    if (current is! ScanFound || current.busy) return null;
 
     final businessId = ref.read(businessIdProvider);
     if (businessId == null) {
       state = const ScanFailed('No shop selected. Sign in again.');
-      return;
+      return null;
     }
 
     state = current.copyWith(busy: true);
@@ -123,27 +133,29 @@ class ScanNotifier extends Notifier<ScanState> {
         current.card,
         businessId,
       );
-      state = ScanFound(
-        current.card.withRewardState(
-          stampCount: result.stampCount,
-          rewardsAvailable: result.rewardsAvailable,
-          stampsRequired: result.stampsRequired,
-        ),
+      final updated = current.card.withRewardState(
+        stampCount: result.stampCount,
+        rewardsAvailable: result.rewardsAvailable,
+        stampsRequired: result.stampsRequired,
       );
+      ref.read(recentActionsProvider.notifier).record(updated.cardId, action);
+      state = ScanFound(updated);
+      return updated;
     } on ApiException catch (e) {
       await ref.read(authProvider.notifier).handleApiError(e);
       state = ScanFound(current.card, actionError: e.message);
+      return null;
     }
   }
 
   /// [points] is signed: the Deduct button passes a negative.
-  Future<void> adjustPoints(int points) async {
+  Future<LoyaltyCard?> adjustPoints(int points) async {
     final current = state;
-    if (current is! ScanFound || current.busy) return;
+    if (current is! ScanFound || current.busy) return null;
     final businessId = ref.read(businessIdProvider);
     if (businessId == null) {
       state = const ScanFailed('No shop selected. Sign in again.');
-      return;
+      return null;
     }
 
     state = current.copyWith(busy: true);
@@ -155,25 +167,29 @@ class ScanNotifier extends Notifier<ScanState> {
             businessId: businessId,
             points: points,
           );
-      state = ScanFound(
-        current.card.withPointsState(
-          pointsBalance: result.pointsBalance,
-          pointsExpiry: result.pointsExpiry,
-        ),
+      final updated = current.card.withPointsState(
+        pointsBalance: result.pointsBalance,
+        pointsExpiry: result.pointsExpiry,
       );
+      ref
+          .read(recentActionsProvider.notifier)
+          .record(updated.cardId, CardAction.points);
+      state = ScanFound(updated);
+      return updated;
     } on ApiException catch (e) {
       await ref.read(authProvider.notifier).handleApiError(e);
       state = ScanFound(current.card, actionError: e.message);
+      return null;
     }
   }
 
-  Future<void> renewMembership(int months) async {
+  Future<LoyaltyCard?> renewMembership(int months) async {
     final current = state;
-    if (current is! ScanFound || current.busy) return;
+    if (current is! ScanFound || current.busy) return null;
     final businessId = ref.read(businessIdProvider);
     if (businessId == null) {
       state = const ScanFailed('No shop selected. Sign in again.');
-      return;
+      return null;
     }
 
     state = current.copyWith(busy: true);
@@ -185,16 +201,20 @@ class ScanNotifier extends Notifier<ScanState> {
             businessId: businessId,
             expiryMonths: months,
           );
-      state = ScanFound(
-        current.card.withMembershipState(
-          membershipNumber: result.membershipNumber,
-          membershipCategory: result.membershipCategory,
-          membershipExpiry: result.membershipExpiry,
-        ),
+      final updated = current.card.withMembershipState(
+        membershipNumber: result.membershipNumber,
+        membershipCategory: result.membershipCategory,
+        membershipExpiry: result.membershipExpiry,
       );
+      ref
+          .read(recentActionsProvider.notifier)
+          .record(updated.cardId, CardAction.membership);
+      state = ScanFound(updated);
+      return updated;
     } on ApiException catch (e) {
       await ref.read(authProvider.notifier).handleApiError(e);
       state = ScanFound(current.card, actionError: e.message);
+      return null;
     }
   }
 

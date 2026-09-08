@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/models/loyalty_card.dart';
 import '../ui/async_button.dart';
+import 'action_flow.dart';
+import 'recent_actions.dart';
 import 'scan_notifier.dart';
 
 class RewardActions extends ConsumerStatefulWidget {
@@ -17,28 +19,42 @@ class RewardActions extends ConsumerStatefulWidget {
 class _RewardActionsState extends ConsumerState<RewardActions> {
   int _increment = 1;
 
-  Future<void> _confirmRedeem() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Redeem a reward?'),
-        content: const Text('This cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Redeem'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true) {
-      await ref.read(scanProvider.notifier).redeem();
-    }
-  }
+  String get _cardId => widget.card.cardId;
+
+  Future<void> _addStamps() => runCardAction(
+    context,
+    ref,
+    cardId: _cardId,
+    action: CardAction.stamps,
+    proceedLabel: 'Stamp anyway',
+    run: () => ref.read(scanProvider.notifier).addStamps(_increment),
+    confirmation: (card) =>
+        'Stamped. ${card.stampCount} of ${card.stampsRequired}.',
+  );
+
+  Future<void> _addToRewards() => runCardAction(
+    context,
+    ref,
+    cardId: _cardId,
+    action: CardAction.addReward,
+    proceedLabel: 'Add anyway',
+    run: () => ref.read(scanProvider.notifier).addToRewards(),
+    confirmation: (card) => 'Reward banked. ${card.rewardsAvailable} waiting.',
+  );
+
+  Future<void> _redeem() => runCardAction(
+    context,
+    ref,
+    cardId: _cardId,
+    action: CardAction.redeem,
+    proceedLabel: 'Redeem',
+    // Redeeming always asks, repeat or not: it spends something the customer
+    // earned and the API gives it back to nobody.
+    confirmTitle: 'Redeem a reward?',
+    confirmBody: 'This cannot be undone.',
+    run: () => ref.read(scanProvider.notifier).redeem(),
+    confirmation: (card) => 'Reward redeemed. ${card.rewardsAvailable} left.',
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -89,12 +105,7 @@ class _RewardActionsState extends ConsumerState<RewardActions> {
           ],
         ),
         const SizedBox(height: 12),
-        AsyncButton(
-          label: 'Add Stamps',
-          busy: busy,
-          onPressed: () =>
-              ref.read(scanProvider.notifier).addStamps(_increment),
-        ),
+        AsyncButton(label: 'Add Stamps', busy: busy, onPressed: _addStamps),
         const SizedBox(height: 8),
         // Not disabled on stampCount >= stampsRequired: on a multi-milestone
         // card the real threshold is the cumulative total of every rung so far,
@@ -104,7 +115,7 @@ class _RewardActionsState extends ConsumerState<RewardActions> {
           label: 'Add to Rewards',
           tonal: true,
           busy: busy,
-          onPressed: () => ref.read(scanProvider.notifier).addToRewards(),
+          onPressed: _addToRewards,
         ),
         const SizedBox(height: 8),
         // Not disabled on rewardsAvailable == 0 either: the API also allows
@@ -114,7 +125,7 @@ class _RewardActionsState extends ConsumerState<RewardActions> {
           label: 'Redeem',
           tonal: true,
           busy: busy,
-          onPressed: _confirmRedeem,
+          onPressed: _redeem,
         ),
         if (error != null) ...[
           const SizedBox(height: 12),

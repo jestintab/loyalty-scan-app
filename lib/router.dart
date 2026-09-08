@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'auth/auth_notifier.dart';
 import 'auth/business_picker_screen.dart';
 import 'auth/login_screen.dart';
+import 'home/home_screen.dart';
 import 'logs/logs_screen.dart';
 import 'scan/scan_screen.dart';
 
@@ -12,7 +13,7 @@ import 'scan/scan_screen.dart';
 /// ask whether it should be on screen.
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: '/scan',
+    initialLocation: '/home',
     refreshListenable: _AuthListenable(ref),
     redirect: (context, goState) {
       final auth = ref.read(authProvider);
@@ -26,7 +27,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         AuthNeedsBusiness() =>
           path == '/choose-business' ? null : '/choose-business',
         AuthSignedIn() =>
-          (path == '/login' || path == '/choose-business') ? '/scan' : null,
+          (path == '/login' || path == '/choose-business') ? '/home' : null,
       };
     },
     routes: [
@@ -35,6 +36,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/choose-business',
         builder: (_, _) => const BusinessPickerScreen(),
       ),
+      GoRoute(path: '/home', builder: (_, _) => const HomeScreen()),
       GoRoute(path: '/scan', builder: (_, _) => const ScanScreen()),
       GoRoute(path: '/logs', builder: (_, _) => const LogsScreen()),
     ],
