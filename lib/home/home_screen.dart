@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../auth/auth_notifier.dart';
 import '../auth/business_name.dart';
 import '../logs/scan_log_tile.dart';
+import '../scan/action_message.dart';
 import 'home_notifier.dart';
 
 /// The screen a shift starts and returns to.
@@ -28,11 +29,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // is how the tally stays honest without the action having to update it.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(homeProvider.notifier).load();
+      // Arriving fresh — after sign-in, or when the dashboard was not already
+      // in the stack — the message was posted before this screen existed, so
+      // there was no listener to hear it.
+      _report(ref.read(actionMessageProvider.notifier).take());
+    });
+  }
+
+  /// Raised a frame late, deliberately. A SnackBar goes to whichever Scaffold
+  /// is registered with the messenger at the moment it is shown, and on the way
+  /// back from an action the outgoing route is still the registered one until
+  /// the transition completes. One frame is enough for this screen to be
+  /// holding it instead.
+  void _report(String? message) {
+    if (message == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+      );
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    // Returning from an action, which is the usual case: this screen is still
+    // alive, so the message arrives as a change rather than as a starting
+    // value.
+    ref.listen<String?>(actionMessageProvider, (_, message) {
+      if (message == null) return;
+      ref.read(actionMessageProvider.notifier).take();
+      _report(message);
+    });
+
     final state = ref.watch(homeProvider);
     final theme = Theme.of(context);
     final businessId = ref.watch(businessIdProvider);

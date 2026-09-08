@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../api/models/loyalty_card.dart';
+import '../home/home_notifier.dart';
+import 'action_message.dart';
 import 'recent_actions.dart';
 
 /// One card action, from the button press to the till being ready for the next
@@ -63,11 +65,15 @@ Future<void> runCardAction(
   final card = await run();
   if (card == null || !context.mounted) return;
 
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(confirmation(card)),
-      behavior: SnackBarBehavior.floating,
-    ),
-  );
   context.go('/home');
+
+  // go_router keeps the dashboard's state when it is already in the stack, so
+  // its own initState does not run again on the way back and the tally would
+  // still be the one from before this action.
+  ref.read(homeProvider.notifier).load();
+
+  // Posted after the move, never before it: the dashboard's listener fires the
+  // moment this is set, and until go() has run the Scaffold registered with
+  // the messenger is still this screen's — the one about to be torn down.
+  ref.read(actionMessageProvider.notifier).post(confirmation(card));
 }

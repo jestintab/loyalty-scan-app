@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:qwallet_scan/api/api_client.dart';
 import 'package:qwallet_scan/api/api_exception.dart';
 import 'package:qwallet_scan/api/models/loyalty_card.dart';
+import 'package:qwallet_scan/api/models/scan_log_entry.dart';
+import 'package:qwallet_scan/home/home_screen.dart';
 import 'package:qwallet_scan/auth/auth_notifier.dart';
 import 'package:qwallet_scan/scan/recent_actions.dart';
 import 'package:qwallet_scan/scan/reward_actions.dart';
@@ -152,7 +154,7 @@ void main() {
     expect(find.text('1'), findsOneWidget);
   });
 
-  testWidgets('a finished stamp says so and hands back the dashboard', (
+  testWidgets('a finished stamp hands the till back to the dashboard', (
     tester,
   ) async {
     await pump(tester, card(stampCount: 3));
@@ -165,8 +167,9 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Add Stamps'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Stamped. 4 of 10.'), findsOneWidget);
     expect(find.text('Dashboard'), findsOneWidget);
+    // What it says once it gets there is asserted against the real dashboard
+    // further down — a stand-in route has nothing to show the message with.
   });
 
   testWidgets('a refusal keeps the card on screen, with the reason', (
@@ -236,5 +239,70 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(api.actions, ['addStamps:1']);
+  });
+
+  testWidgets('the dashboard it returns to has counted the new scan', (
+    tester,
+  ) async {
+    api = FakeApiClient();
+    api.card = card(stampCount: 3);
+    api.actionResult = const CardActionResult(
+      stampCount: 4,
+      stampsRequired: 10,
+      rewardsAvailable: 0,
+    );
+    // Two pages: what the dashboard held before the action, and what the
+    // server has after it.
+    final now = DateTime.now();
+    ScanLogEntry logged(int id) => ScanLogEntry(
+      id: id,
+      type: ScanLogType.stamp,
+      cardId: 'ABC1234567',
+      staffName: 'Sam',
+      customerName: 'Ali',
+      stampsAdded: 1,
+      stampsBefore: 0,
+      stampsAfter: 1,
+      loggedAt: now,
+    );
+    api.logPages.addAll([
+      ScanLogPage(entries: [logged(1)], hasMore: false, nextCursor: null),
+      ScanLogPage(
+        entries: [logged(2), logged(1)],
+        hasMore: false,
+        nextCursor: null,
+      ),
+    ]);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          apiClientProvider.overrideWithValue(api),
+          businessIdProvider.overrideWithValue('biz-1'),
+        ],
+        child: MaterialApp.router(
+          routerConfig: GoRouter(
+            routes: [
+              GoRoute(
+                path: '/',
+                builder: (_, _) =>
+                    Scaffold(body: RewardActions(card: card(stampCount: 3))),
+              ),
+              // The real dashboard, not a stand-in: the bug this catches is
+              // that returning to it left yesterday's tally on screen.
+              GoRoute(path: '/home', builder: (_, _) => const HomeScreen()),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.container().read(scanProvider.notifier).lookUp('ABC1234567');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Add Stamps'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2 scans today'), findsOneWidget);
+    expect(find.text('Stamped. 4 of 10.'), findsOneWidget);
   });
 }

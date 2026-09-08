@@ -130,6 +130,12 @@ class FakeApiClient implements ApiClient {
     logCursors.add(cursor);
     await _wait();
     if (logError != null) throw logError!;
+    // An empty queue answers with an empty page rather than throwing: every
+    // finished action now refreshes the dashboard, so tests about a button
+    // would otherwise have to prime a scan log they say nothing about.
+    if (logPages.isEmpty) {
+      return const ScanLogPage(entries: [], hasMore: false, nextCursor: null);
+    }
     return logPages.removeAt(0);
   }
 }
