@@ -31,6 +31,21 @@ fvm flutter analyze
 `integration_test/walkthrough_test.dart` drives every screen on a real device
 against a real API, printing `SHOT-READY:` markers for screenshotting.
 
+## App identifiers
+
+The two platforms deliberately differ, which is otherwise a bug worth fixing:
+
+| | |
+|---|---|
+| Android | `me.qweb.qwallet` |
+| iOS | `me.qworks.qwallet`, team `288LCT5K5F` |
+
+`me.qweb.qwallet` was registered to a different Apple team (`KZBKM3GUR9`) by an
+earlier archive, and an App ID is globally unique across all of Apple, so it
+cannot be claimed by the team this ships under. Freeing it means deleting the
+identifier from the other team's portal; until someone does, iOS keeps its own
+name. Neither can change after the first publish on its store.
+
 ## Release signing
 
 The Play Store rejects an upload signed with debug keys, and the key you first
