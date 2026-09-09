@@ -107,9 +107,14 @@ Run from `~/Desktop/Learn/Loyalty/loyalty-scan-app` (the repo already exists and
 holds `docs/` and `.gitignore` — `flutter create` fills in around them):
 
 ```bash
-fvm use 3.44.8
+fvm use 3.44.8 --force --skip-pub-get --skip-setup
 fvm flutter create --org me.qwallet --project-name qwallet_scan --platforms=android,ios .
 ```
+
+`--force` is not optional here. `fvm use` validates that it is being run inside
+a Flutter project, and in an empty directory it stops on an interactive prompt
+that a non-interactive shell will hang on forever. `--skip-pub-get` for the same
+reason: there is no pubspec to resolve until the next line creates one.
 
 - [ ] **Step 2: Add the dependencies**
 
@@ -748,7 +753,9 @@ class HttpApiClient implements ApiClient {
       _uri(['api', 'passes', 'scan-log'], {
         'businessId': businessId,
         'limit': '$limit',
-        if (cursor != null) 'cursor': cursor,
+        // Dart 3's null-aware element: the entry is omitted when cursor is
+        // null. `if (cursor != null)` here trips use_null_aware_elements.
+        'cursor': ?cursor,
       }),
     );
     return ScanLogPage.fromJson(json);
@@ -1988,6 +1995,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _password = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
+  /// Local, not derived from AuthLoading. That state also means "the app is
+  /// still restoring a session at launch", and a login screen that reads it as
+  /// "signing in" opens with a button that spins and can never be pressed.
+  bool _submitting = false;
+
   @override
   void dispose() {
     _identifier.dispose();
@@ -1997,15 +2009,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    await ref
-        .read(authProvider.notifier)
-        .signIn(_identifier.text.trim(), _password.text);
+    setState(() => _submitting = true);
+    try {
+      await ref
+          .read(authProvider.notifier)
+          .signIn(_identifier.text.trim(), _password.text);
+    } finally {
+      // A successful sign-in routes away and this widget is gone; the guard is
+      // for the refusals, which stay on this screen.
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(authProvider);
-    final busy = state is AuthLoading;
     final error = state is AuthSignedOut ? state.error : null;
 
     return Scaffold(
@@ -2065,8 +2083,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ],
                     const SizedBox(height: 20),
                     FilledButton(
-                      onPressed: busy ? null : _submit,
-                      child: busy
+                      onPressed: _submitting ? null : _submit,
+                      child: _submitting
                           ? const SizedBox(
                               height: 18,
                               width: 18,
@@ -2130,12 +2148,14 @@ class BusinessPickerScreen extends ConsumerWidget {
       ),
       body: ListView.separated(
         itemCount: ids.length,
-        separatorBuilder: (_, __) => const Divider(height: 1),
+        separatorBuilder: (_, _) => const Divider(height: 1),
         itemBuilder: (context, i) {
           final id = ids[i];
           final name = ref.watch(_businessNamesProvider(id));
           return ListTile(
-            title: Text(name.valueOrNull ?? id),
+            // `value`, not `valueOrNull`: Riverpod 3 dropped the latter, and
+            // `value` is already nullable while the lookup is in flight.
+            title: Text(name.value ?? id),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => ref.read(authProvider.notifier).chooseBusiness(id),
           );
@@ -2180,17 +2200,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       };
     },
     routes: [
-      GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
-      GoRoute(path: '/choose-business', builder: (_, __) => const BusinessPickerScreen()),
-      GoRoute(path: '/scan', builder: (_, __) => const ScanScreen()),
-      GoRoute(path: '/logs', builder: (_, __) => const LogsScreen()),
+      GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
+      GoRoute(path: '/choose-business', builder: (_, _) => const BusinessPickerScreen()),
+      GoRoute(path: '/scan', builder: (_, _) => const ScanScreen()),
+      GoRoute(path: '/logs', builder: (_, _) => const LogsScreen()),
     ],
   );
 });
 
 class _AuthListenable extends ChangeNotifier {
   _AuthListenable(Ref ref) {
-    ref.listen(authProvider, (_, __) => notifyListeners());
+    ref.listen(authProvider, (_, _) => notifyListeners());
   }
 }
 ```
@@ -3107,6 +3127,12 @@ void main() {
         child: MaterialApp(home: Scaffold(body: RewardActions(card: c))),
       ),
     );
+    // This widget only ever renders inside ScanFound, so the notifier is put
+    // there too. Without it the buttons are correctly inert — _act refuses to
+    // run against a notifier holding no card — and every action test would be
+    // asserting on a state the app never reaches.
+    await tester.container().read(scanProvider.notifier).lookUp(c.cardId);
+    await tester.pumpAndSettle();
   }
 
   testWidgets('shows the stamp count and the reward on offer', (tester) async {
@@ -3124,8 +3150,8 @@ void main() {
     await pump(tester, card(stampCount: 3, rewardsAvailable: 0));
 
     for (final label in ['Add Stamps', 'Add to Rewards', 'Redeem']) {
-      final button = tester.widget<ButtonStyleButton>(
-        find.widgetWithText(ButtonStyleButton, label),
+      final button = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, label),
       );
       expect(button.onPressed, isNotNull, reason: '$label must stay tappable');
     }
@@ -3134,7 +3160,7 @@ void main() {
   testWidgets('Redeem asks before it takes anything away', (tester) async {
     await pump(tester, card(rewardsAvailable: 1));
 
-    await tester.tap(find.widgetWithText(ButtonStyleButton, 'Redeem'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Redeem'));
     await tester.pumpAndSettle();
 
     expect(find.text('Redeem a reward?'), findsOneWidget);
@@ -3146,7 +3172,7 @@ void main() {
     api.actionResult =
         const CardActionResult(stampCount: 0, stampsRequired: 10, rewardsAvailable: 0);
 
-    await tester.tap(find.widgetWithText(ButtonStyleButton, 'Redeem'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Redeem'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(TextButton, 'Redeem'));
     await tester.pumpAndSettle();
@@ -3162,7 +3188,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.add));
     await tester.tap(find.byIcon(Icons.add));
     await tester.pump();
-    await tester.tap(find.widgetWithText(ButtonStyleButton, 'Add Stamps'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Add Stamps'));
     await tester.pumpAndSettle();
 
     expect(api.actions, ['addStamps:3']);
@@ -3435,6 +3461,10 @@ void main() {
         child: MaterialApp(home: Scaffold(body: child)),
       ),
     );
+    // Same reason as the reward tests: these widgets only render inside
+    // ScanFound, and their buttons are inert without a loaded card.
+    await tester.container().read(scanProvider.notifier).lookUp(c.cardId);
+    await tester.pumpAndSettle();
   }
 
   group('PointsActions', () {
@@ -3451,7 +3481,7 @@ void main() {
       api.pointsResult = const PointsResult(pointsBalance: 50, pointsExpiry: null);
 
       await tester.enterText(find.byKey(const Key('points-amount')), '50');
-      await tester.tap(find.widgetWithText(ButtonStyleButton, 'Add Points'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Add Points'));
       await tester.pumpAndSettle();
 
       expect(api.actions, ['adjustPoints:50']);
@@ -3463,7 +3493,7 @@ void main() {
       api.pointsResult = const PointsResult(pointsBalance: 70, pointsExpiry: null);
 
       await tester.enterText(find.byKey(const Key('points-amount')), '30');
-      await tester.tap(find.widgetWithText(ButtonStyleButton, 'Deduct Points'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Deduct Points'));
       await tester.pumpAndSettle();
 
       expect(api.actions, ['adjustPoints:-30']);
@@ -3474,7 +3504,7 @@ void main() {
       await pump(tester, c, PointsActions(card: c));
 
       await tester.enterText(find.byKey(const Key('points-amount')), 'abc');
-      await tester.tap(find.widgetWithText(ButtonStyleButton, 'Add Points'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Add Points'));
       await tester.pumpAndSettle();
 
       expect(api.actions, isEmpty);
@@ -3508,7 +3538,7 @@ void main() {
 
       await tester.tap(find.text('12 months'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(ButtonStyleButton, 'Renew'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Renew'));
       await tester.pumpAndSettle();
 
       expect(api.actions, ['renewMembership:12']);
@@ -4104,8 +4134,17 @@ import '../support/fake_api_client.dart';
 void main() {
   late FakeApiClient api;
 
-  Future<void> pump(WidgetTester tester) async {
+  /// The screen loads its first page from a post-frame callback, which runs
+  /// inside pumpWidget — so the fake has to be primed before pumping, not
+  /// after, or the load races an empty queue.
+  Future<void> pump(
+    WidgetTester tester, {
+    ScanLogPage? page,
+    ApiException? error,
+  }) async {
     api = FakeApiClient();
+    if (page != null) api.logPages.add(page);
+    api.logError = error;
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -4115,33 +4154,31 @@ void main() {
         child: const MaterialApp(home: LogsScreen()),
       ),
     );
+    await tester.pumpAndSettle();
   }
 
   testWidgets('an empty log says so instead of showing a blank screen',
       (tester) async {
-    await pump(tester);
-    api.logPages.add(
-      const ScanLogPage(entries: [], hasMore: false, nextCursor: null),
+    await pump(
+      tester,
+      page: const ScanLogPage(entries: [], hasMore: false, nextCursor: null),
     );
-    await tester.pumpAndSettle();
 
     expect(find.text('No scans yet'), findsOneWidget);
   });
 
   testWidgets('a failed load offers a retry rather than looking empty',
       (tester) async {
-    await pump(tester);
-    api.logError = ApiException.network();
-    await tester.pumpAndSettle();
+    await pump(tester, error: ApiException.network());
 
     expect(find.text("Can't reach the server. Check your connection."), findsOneWidget);
     expect(find.text('Try again'), findsOneWidget);
   });
 
   testWidgets('rows show the customer and what happened', (tester) async {
-    await pump(tester);
-    api.logPages.add(
-      ScanLogPage(
+    await pump(
+      tester,
+      page: ScanLogPage(
         entries: [
           ScanLogEntry(
             id: 1,
@@ -4159,7 +4196,6 @@ void main() {
         nextCursor: null,
       ),
     );
-    await tester.pumpAndSettle();
 
     expect(find.text('Ali'), findsOneWidget);
     expect(find.text('Reward redeemed'), findsOneWidget);
@@ -4499,9 +4535,12 @@ In `lib/auth/auth_notifier.dart`, inside `AuthNotifier`:
   /// Deliberately only 401. A 403 means this business is not theirs, which is a
   /// different problem, and a 400 is a refused action mid-transaction — neither
   /// is a reason to throw away a working session.
-  void handleApiError(ApiException e) {
+  /// Returns a Future so callers can await the sign-out before reporting their
+  /// own work finished — signOut clears the keychain, and a caller that does
+  /// not wait can settle while the token is still on disk.
+  Future<void> handleApiError(ApiException e) async {
     if (e.kind == ApiErrorKind.unauthorized) {
-      signOut(reason: e.message);
+      await signOut(reason: e.message);
     }
   }
 ```
@@ -4513,14 +4552,14 @@ In `lib/scan/scan_notifier.dart`, each of the three
 
 ```dart
     } on ApiException catch (e) {
-      ref.read(authProvider.notifier).handleApiError(e);
+      await ref.read(authProvider.notifier).handleApiError(e);
       state = ScanFailed(e.message);          // in lookUp
     }
 ```
 
 ```dart
     } on ApiException catch (e) {
-      ref.read(authProvider.notifier).handleApiError(e);
+      await ref.read(authProvider.notifier).handleApiError(e);
       state = ScanFound(current.card, actionError: e.message);   // in _act,
     }                                          // adjustPoints, renewMembership
 ```
@@ -4529,14 +4568,14 @@ In `lib/logs/logs_notifier.dart`, both catch blocks:
 
 ```dart
     } on ApiException catch (e) {
-      ref.read(authProvider.notifier).handleApiError(e);
+      await ref.read(authProvider.notifier).handleApiError(e);
       state = LogsState(error: e.message);      // in loadFirstPage
     }
 ```
 
 ```dart
     } on ApiException catch (e) {
-      ref.read(authProvider.notifier).handleApiError(e);
+      await ref.read(authProvider.notifier).handleApiError(e);
       state = current.copyWith(loadingMore: false, error: e.message);  // loadMore
     }
 ```
