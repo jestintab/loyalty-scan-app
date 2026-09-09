@@ -37,7 +37,7 @@ plugins {
 }
 
 android {
-    namespace = "me.qwallet.scanner"
+    namespace = "me.qweb.qwallet"
     // 37, not flutter.compileSdkVersion (36): flutter_secure_storage 11's AAR
     // metadata requires everything depending on it to compile against 37 or
     // later. compileSdk only affects which APIs are on the compile classpath —
@@ -52,7 +52,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "me.qwallet.scanner"
+        applicationId = "me.qweb.qwallet"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
