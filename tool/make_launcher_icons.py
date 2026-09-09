@@ -29,6 +29,12 @@ MARK_REGION = (0, 0, 320, 400)
 GOLD = (0xC0, 0x90, 0x2D)
 INK = (0x1A, 0x18, 0x15)
 
+# The launch image is the same mark on the same disc as the launcher icon, at
+# 120pt. Android composes its splash from the adaptive icon automatically;
+# iOS has to be handed a picture, and handing it a different one would mean the
+# app looked like two apps between tapping it and it opening.
+LAUNCH_PT = 120
+
 # How much of each canvas the mark's height takes up. The adaptive figure is
 # the small one because Android reserves the outer quarter of that canvas for
 # parallax and mask: 46% of 108dp lands the mark at two thirds of the 72dp a
@@ -106,6 +112,19 @@ def rounded(canvas: int, radius_ratio: float = 0.22) -> Image.Image:
     return ground
 
 
+def launch_tile(px: int, art: Image.Image) -> Image.Image:
+    """The icon's disc and mark, on transparency.
+
+    Transparent rather than on the cream, because the storyboard paints the
+    ground from a colour set that follows light and dark mode — baking a light
+    background in here would put a cream card in the middle of a dark screen.
+    """
+    tile = Image.new("RGBA", (px, px), (0, 0, 0, 0))
+    ImageDraw.Draw(tile).ellipse((0, 0, px - 1, px - 1), fill=INK + (255,))
+    tile.alpha_composite(placed(px, ADAPTIVE_SCALE / (72 / 108), art))
+    return tile
+
+
 def size_of(path: Path) -> int:
     with Image.open(path) as im:
         assert im.width == im.height, f"{path} is not square"
@@ -147,6 +166,13 @@ def main() -> None:
         tile.alpha_composite(placed(canvas, IOS_SCALE, art))
         tile.convert("RGB").save(path)
         written.append(path)
+
+    # iOS launch screen: one image per scale, named as the storyboard expects.
+    launch = ROOT / "ios" / "Runner" / "Assets.xcassets" / "LaunchImage.imageset"
+    for scale in (1, 2, 3):
+        name = "LaunchImage.png" if scale == 1 else f"LaunchImage@{scale}x.png"
+        launch_tile(LAUNCH_PT * scale, art).save(launch / name)
+        written.append(launch / name)
 
     for path in written:
         print(path.relative_to(ROOT))
