@@ -6,6 +6,7 @@ import '../auth/auth_notifier.dart';
 import '../auth/business_name.dart';
 import '../logs/scan_log_tile.dart';
 import '../scan/action_message.dart';
+import '../scan/scan_notifier.dart';
 import 'home_notifier.dart';
 
 /// The screen a shift starts and returns to.
@@ -92,7 +93,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: FilledButton.icon(
                 // Never disabled by a failed or pending summary: the count is
                 // a courtesy, scanning is the job.
-                onPressed: () => context.push('/scan'),
+                //
+                // Reset first: the scan state outlives the scan screen, so
+                // without this the camera reopens on the previous customer's
+                // card — and the next tap could stamp the wrong person.
+                onPressed: () {
+                  ref.read(scanProvider.notifier).reset();
+                  context.push('/scan');
+                },
                 icon: const Icon(Icons.qr_code_scanner, size: 34),
                 label: Text(
                   'Start scanning',

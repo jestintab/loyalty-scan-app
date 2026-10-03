@@ -4,9 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qwallet_scan/api/api_client.dart';
 import 'package:qwallet_scan/api/api_exception.dart';
+import 'package:qwallet_scan/api/models/loyalty_card.dart';
 import 'package:qwallet_scan/api/models/scan_log_entry.dart';
 import 'package:qwallet_scan/auth/auth_notifier.dart';
 import 'package:qwallet_scan/home/home_screen.dart';
+import 'package:qwallet_scan/scan/scan_notifier.dart';
 
 import '../support/fake_api_client.dart';
 
@@ -120,6 +122,43 @@ void main() {
     await tester.tap(find.text('Start scanning'));
     await tester.pumpAndSettle();
 
+    expect(find.text('Camera'), findsOneWidget);
+  });
+
+  testWidgets('Start scanning opens a fresh camera, not the previous customer', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      const ScanLogPage(entries: [], hasMore: false, nextCursor: null),
+    );
+    // The last customer is still loaded: the scan state outlives the scan
+    // screen, so this is what a second "Start scanning" used to reopen.
+    api.card = const LoyaltyCard(
+      cardId: 'ABC1234567',
+      businessId: 'biz-1',
+      userName: 'Ali',
+      userEmail: 'a@b.qa',
+      userPhone: null,
+      templateType: 'reward',
+      stampCount: 3,
+      rewardsAvailable: 0,
+      stampsRequired: 10,
+      rewardDescription: 'A free flat white',
+      businessName: 'Wake',
+      pointsBalance: 0,
+      pointsExpiry: null,
+      membershipNumber: null,
+      membershipCategory: null,
+      membershipExpiry: null,
+    );
+    await tester.container().read(scanProvider.notifier).lookUp('ABC1234567');
+    expect(tester.container().read(scanProvider), isA<ScanFound>());
+
+    await tester.tap(find.text('Start scanning'));
+    await tester.pumpAndSettle();
+
+    expect(tester.container().read(scanProvider), isA<ScanIdle>());
     expect(find.text('Camera'), findsOneWidget);
   });
 
