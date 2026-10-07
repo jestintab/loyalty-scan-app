@@ -241,6 +241,16 @@ class ScanNotifier extends Notifier<ScanState> {
     }
   }
 
+  /// Drops the last refusal while keeping the card. A multi-service card shows
+  /// one service's controls at a time, and a refusal about one must not be
+  /// shown under the other's.
+  void clearActionError() {
+    final current = state;
+    if (current is ScanFound && current.actionError != null) {
+      state = current.copyWith();
+    }
+  }
+
   void reset() => state = const ScanIdle();
 }
 

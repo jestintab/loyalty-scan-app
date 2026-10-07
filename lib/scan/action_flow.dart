@@ -28,6 +28,7 @@ Future<void> runCardAction(
   required String Function(LoyaltyCard) confirmation,
   String? confirmTitle,
   String? confirmBody,
+  bool stayOnCard = false,
 }) async {
   final since = ref
       .read(recentActionsProvider.notifier)
@@ -64,6 +65,18 @@ Future<void> runCardAction(
 
   final card = await run();
   if (card == null || !context.mounted) return;
+
+  // A multi-service card stays on screen (spec §4): a customer who had both
+  // services gets both stamped from one scan. The dashboard tally is still
+  // refreshed, and the confirmation is raised on this screen's own Scaffold,
+  // which is staying put.
+  if (stayOnCard) {
+    ref.read(homeProvider.notifier).load();
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(confirmation(card))));
+    return;
+  }
 
   context.go('/home');
 

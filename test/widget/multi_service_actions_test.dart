@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -129,11 +131,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(api.actions, ['addStamps:2@s2']);
-    expect(find.text('Dashboard'), findsOneWidget);
-    expect(
-      tester.container().read(actionMessageProvider),
-      'Blowdry stamped. 3 of 5.',
-    );
+    // Spec §4: the selection stays put after an action, so the other service
+    // can be done in the same visit without scanning the card again.
+    expect(find.text('Dashboard'), findsNothing);
+    expect(find.text('Blowdry stamped. 3 of 5.'), findsOneWidget);
+    expect(button('Add Blowdry Stamps'), findsOneWidget);
+    expect(tester.container().read(actionMessageProvider), isNull);
   });
 
   testWidgets('the repeat warning is per service (Review Focus 1)', (
@@ -234,5 +237,59 @@ void main() {
       find.text("This card type isn't supported in this app"),
       findsNothing,
     );
+  });
+
+  testWidgets('switching service clears the other service\'s refusal', (
+    tester,
+  ) async {
+    await pump(tester, multiCard());
+    api.actionError = ApiException.fromResponse(
+      400,
+      '{"error":"No reward available to redeem"}',
+    );
+    await tester.tap(find.byKey(const Key('service-s2')));
+    await tester.pumpAndSettle();
+    await tester.tap(button('Redeem Blowdry Reward'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Redeem'));
+    await tester.pumpAndSettle();
+    expect(find.text('No reward available to redeem'), findsOneWidget);
+
+    // Mani/Pedi does have a reward: Blowdry's refusal must not appear there.
+    await tester.tap(find.byKey(const Key('service-s1')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No reward available to redeem'), findsNothing);
+  });
+
+  testWidgets('the services cannot be switched while an action is in flight', (
+    tester,
+  ) async {
+    await pump(tester, multiCard());
+    final gate = Completer<void>();
+    api.gate = gate.future;
+    api.actionResult = CardActionResult(
+      stampCount: 4,
+      stampsRequired: 0,
+      rewardsAvailable: 1,
+      services: [
+        service('s1', 'Mani/Pedi', 2, 5, rewards: 1),
+        service('s2', 'Blowdry', 2, 5),
+      ],
+    );
+    await tester.tap(find.byKey(const Key('service-s2')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(button('Add Blowdry Stamps'));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('service-s1')));
+    await tester.pump();
+    gate.complete();
+    await tester.pumpAndSettle();
+
+    // Still on Blowdry, and the stamp that landed is confirmed.
+    expect(button('Add Blowdry Stamps'), findsOneWidget);
+    expect(find.text('Blowdry stamped. 2 of 5.'), findsOneWidget);
+    expect(api.actions, ['addStamps:1@s2']);
   });
 }

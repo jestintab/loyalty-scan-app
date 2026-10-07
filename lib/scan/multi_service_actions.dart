@@ -26,6 +26,7 @@ class _MultiServiceActionsState extends ConsumerState<MultiServiceActions> {
   Widget build(BuildContext context) {
     final state = ref.watch(scanProvider);
     final card = state is ScanFound ? state.card : widget.card;
+    final busy = state is ScanFound && state.busy;
     final theme = Theme.of(context);
     final selected = _selectedId;
 
@@ -47,7 +48,15 @@ class _MultiServiceActionsState extends ConsumerState<MultiServiceActions> {
                 child: _ServiceTile(
                   service: s,
                   selected: s.id == selected,
-                  onTap: () => setState(() => _selectedId = s.id),
+                  // Not while an action is in flight: switching would dispose
+                  // the controls waiting on it, and the stamp would land with
+                  // no confirmation.
+                  onTap: busy
+                      ? null
+                      : () {
+                          ref.read(scanProvider.notifier).clearActionError();
+                          setState(() => _selectedId = s.id);
+                        },
                 ),
               ),
             ],
@@ -81,7 +90,7 @@ class _ServiceTile extends StatelessWidget {
 
   final CardService service;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   String get _status {
     final n = service.rewardsAvailable;

@@ -112,6 +112,7 @@ class _StampControlsState extends ConsumerState<StampControls> {
       cardId: t.guardKey,
       action: CardAction.stamps,
       proceedLabel: 'Stamp anyway',
+      stayOnCard: t.serviceId != null,
       run: () => ref
           .read(scanProvider.notifier)
           .addStamps(count, serviceId: t.serviceId),
@@ -131,6 +132,7 @@ class _StampControlsState extends ConsumerState<StampControls> {
     cardId: t.guardKey,
     action: CardAction.addReward,
     proceedLabel: 'Add anyway',
+    stayOnCard: t.serviceId != null,
     run: () =>
         ref.read(scanProvider.notifier).addToRewards(serviceId: t.serviceId),
     confirmation: (card) {
@@ -148,6 +150,7 @@ class _StampControlsState extends ConsumerState<StampControls> {
     cardId: t.guardKey,
     action: CardAction.redeem,
     proceedLabel: 'Redeem',
+    stayOnCard: t.serviceId != null,
     // Redeeming always asks, repeat or not: it spends something the customer
     // earned and the API gives it back to nobody.
     confirmTitle: t.named('Redeem a reward?', (n) => 'Redeem a $n reward?'),
