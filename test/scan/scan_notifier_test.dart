@@ -7,9 +7,11 @@ import 'package:qwallet_scan/api/api_exception.dart';
 import 'package:qwallet_scan/api/models/loyalty_card.dart';
 import 'package:qwallet_scan/auth/auth_notifier.dart';
 import 'package:qwallet_scan/auth/token_store.dart';
+import 'package:qwallet_scan/scan/recent_actions.dart';
 import 'package:qwallet_scan/scan/scan_notifier.dart';
 
 import '../support/fake_api_client.dart';
+import '../support/multi_service_fixtures.dart';
 
 LoyaltyCard rewardCard({int stampCount = 3, int rewardsAvailable = 0}) =>
     LoyaltyCard(
@@ -267,5 +269,86 @@ void main() {
 
     expect(container.read(authProvider), isA<AuthSignedIn>());
     expect(store.clearCount, 0);
+  });
+
+  group('service actions', () {
+    test(
+      'a stamp on one service sends its id and adopts the returned services',
+      () async {
+        final container = containerWith();
+        api.card = multiCard();
+        await container.read(scanProvider.notifier).lookUp('MSC1234567');
+        api.actionResult = CardActionResult(
+          stampCount: 5,
+          stampsRequired: 0,
+          rewardsAvailable: 1,
+          services: [
+            service('s1', 'Mani/Pedi', 4, 5, rewards: 1),
+            service('s2', 'Blowdry', 1, 5),
+          ],
+        );
+
+        final updated = await container
+            .read(scanProvider.notifier)
+            .addStamps(2, serviceId: 's1');
+
+        expect(api.actions, ['addStamps:2@s1']);
+        expect(updated!.services.first.stampCount, 4);
+        expect(updated.stampCount, 5);
+        expect(updated.templateType, 'multi_service');
+        final state = container.read(scanProvider) as ScanFound;
+        expect(state.card.services.first.stampCount, 4);
+      },
+    );
+
+    test('the repeat memory is per service', () async {
+      final container = containerWith();
+      api.card = multiCard();
+      await container.read(scanProvider.notifier).lookUp('MSC1234567');
+      api.actionResult = CardActionResult(
+        stampCount: 4,
+        stampsRequired: 0,
+        rewardsAvailable: 1,
+        services: multiCard().services,
+      );
+
+      await container.read(scanProvider.notifier).redeem(serviceId: 's1');
+
+      final recent = container.read(recentActionsProvider.notifier);
+      expect(recent.sinceLast('MSC1234567:s1', CardAction.redeem), isNotNull);
+      expect(recent.sinceLast('MSC1234567:s2', CardAction.redeem), isNull);
+      expect(recent.sinceLast('MSC1234567', CardAction.redeem), isNull);
+    });
+
+    test(
+      'a refused service action keeps the card and records nothing',
+      () async {
+        final container = containerWith();
+        api.card = multiCard();
+        await container.read(scanProvider.notifier).lookUp('MSC1234567');
+        api.actionError = ApiException.fromResponse(
+          409,
+          '{"error":"Card was updated concurrently, please retry"}',
+        );
+
+        final updated = await container
+            .read(scanProvider.notifier)
+            .addToRewards(serviceId: 's2');
+
+        expect(updated, isNull);
+        final state = container.read(scanProvider) as ScanFound;
+        expect(
+          state.actionError,
+          'Card was updated concurrently, please retry',
+        );
+        expect(state.card.services.length, 2);
+        expect(
+          container
+              .read(recentActionsProvider.notifier)
+              .sinceLast('MSC1234567:s2', CardAction.addReward),
+          isNull,
+        );
+      },
+    );
   });
 }

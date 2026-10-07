@@ -83,25 +83,35 @@ class ScanNotifier extends Notifier<ScanState> {
     }
   }
 
-  Future<LoyaltyCard?> addStamps(int increment) => _act(
+  Future<LoyaltyCard?> addStamps(int increment, {String? serviceId}) => _act(
     CardAction.stamps,
+    serviceId: serviceId,
     (api, card, businessId) => api.addStamps(
       cardId: card.cardId,
       businessId: businessId,
       increment: increment,
+      serviceId: serviceId,
     ),
   );
 
-  Future<LoyaltyCard?> addToRewards() => _act(
+  Future<LoyaltyCard?> addToRewards({String? serviceId}) => _act(
     CardAction.addReward,
-    (api, card, businessId) =>
-        api.addToRewards(cardId: card.cardId, businessId: businessId),
+    serviceId: serviceId,
+    (api, card, businessId) => api.addToRewards(
+      cardId: card.cardId,
+      businessId: businessId,
+      serviceId: serviceId,
+    ),
   );
 
-  Future<LoyaltyCard?> redeem() => _act(
+  Future<LoyaltyCard?> redeem({String? serviceId}) => _act(
     CardAction.redeem,
-    (api, card, businessId) =>
-        api.redeem(cardId: card.cardId, businessId: businessId),
+    serviceId: serviceId,
+    (api, card, businessId) => api.redeem(
+      cardId: card.cardId,
+      businessId: businessId,
+      serviceId: serviceId,
+    ),
   );
 
   /// The shape every reward action takes: only from a loaded card, only one at
@@ -115,8 +125,9 @@ class ScanNotifier extends Notifier<ScanState> {
   /// than at the button, so a refusal is never remembered as something done.
   Future<LoyaltyCard?> _act(
     CardAction action,
-    Future<CardActionResult> Function(ApiClient, LoyaltyCard, String) call,
-  ) async {
+    Future<CardActionResult> Function(ApiClient, LoyaltyCard, String) call, {
+    String? serviceId,
+  }) async {
     final current = state;
     if (current is! ScanFound || current.busy) return null;
 
@@ -133,12 +144,24 @@ class ScanNotifier extends Notifier<ScanState> {
         current.card,
         businessId,
       );
-      final updated = current.card.withRewardState(
-        stampCount: result.stampCount,
-        rewardsAvailable: result.rewardsAvailable,
-        stampsRequired: result.stampsRequired,
-      );
-      ref.read(recentActionsProvider.notifier).record(updated.cardId, action);
+      // A multi-service response carries every service; the card's counts
+      // come from it. Any other card keeps its single counter.
+      final updated = result.services.isNotEmpty
+          ? current.card.withServiceState(
+              services: result.services,
+              stampCount: result.stampCount,
+              rewardsAvailable: result.rewardsAvailable,
+            )
+          : current.card.withRewardState(
+              stampCount: result.stampCount,
+              rewardsAvailable: result.rewardsAvailable,
+              stampsRequired: result.stampsRequired,
+            );
+      // Per service, so stamping Mani/Pedi never warns about Blowdry.
+      final guardKey = serviceId == null
+          ? updated.cardId
+          : '${updated.cardId}:$serviceId';
+      ref.read(recentActionsProvider.notifier).record(guardKey, action);
       state = ScanFound(updated);
       return updated;
     } on ApiException catch (e) {
