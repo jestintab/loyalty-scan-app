@@ -18,6 +18,7 @@ class LoyaltyCard {
     required this.membershipNumber,
     required this.membershipCategory,
     required this.membershipExpiry,
+    this.services = const [],
   });
 
   final String cardId;
@@ -45,6 +46,10 @@ class LoyaltyCard {
   final String? membershipCategory;
   final DateTime? membershipExpiry;
 
+  /// A multi-service card's services, in the API's order (s1, s2). Empty for
+  /// every other card type, and for responses from before services existed.
+  final List<CardService> services;
+
   /// A copy carrying the counts an action returned. Only these three move —
   /// the customer and the card's identity do not change under a stamp.
   LoyaltyCard withRewardState({
@@ -68,6 +73,7 @@ class LoyaltyCard {
     membershipNumber: membershipNumber,
     membershipCategory: membershipCategory,
     membershipExpiry: membershipExpiry,
+    services: services,
   );
 
   LoyaltyCard withPointsState({
@@ -90,6 +96,7 @@ class LoyaltyCard {
     membershipNumber: membershipNumber,
     membershipCategory: membershipCategory,
     membershipExpiry: membershipExpiry,
+    services: services,
   );
 
   LoyaltyCard withMembershipState({
@@ -113,6 +120,33 @@ class LoyaltyCard {
     membershipNumber: membershipNumber,
     membershipCategory: membershipCategory,
     membershipExpiry: membershipExpiry,
+    services: services,
+  );
+
+  /// A copy carrying what a service action returned: every service's counts,
+  /// and the card totals the server recomputed. The server owns all of them.
+  LoyaltyCard withServiceState({
+    required List<CardService> services,
+    required int stampCount,
+    required int rewardsAvailable,
+  }) => LoyaltyCard(
+    cardId: cardId,
+    businessId: businessId,
+    userName: userName,
+    userEmail: userEmail,
+    userPhone: userPhone,
+    templateType: templateType,
+    stampCount: stampCount,
+    rewardsAvailable: rewardsAvailable,
+    stampsRequired: stampsRequired,
+    rewardDescription: rewardDescription,
+    businessName: businessName,
+    pointsBalance: pointsBalance,
+    pointsExpiry: pointsExpiry,
+    membershipNumber: membershipNumber,
+    membershipCategory: membershipCategory,
+    membershipExpiry: membershipExpiry,
+    services: services,
   );
 
   factory LoyaltyCard.fromJson(Map<String, dynamic> json) {
@@ -135,6 +169,7 @@ class LoyaltyCard {
       membershipNumber: json['membershipNumber'] as String?,
       membershipCategory: json['membershipCategory'] as String?,
       membershipExpiry: _date(json['membershipExpiry']),
+      services: _services(json['services']),
     );
   }
 }
@@ -146,17 +181,23 @@ class CardActionResult {
     required this.stampCount,
     required this.stampsRequired,
     required this.rewardsAvailable,
+    this.services = const [],
   });
 
   final int stampCount;
   final int stampsRequired;
   final int rewardsAvailable;
 
+  /// Every service of a multi-service card, as the action left them. Empty
+  /// for every other card type.
+  final List<CardService> services;
+
   factory CardActionResult.fromJson(Map<String, dynamic> json) =>
       CardActionResult(
         stampCount: _int(json['stampCount']),
         stampsRequired: _int(json['stampsRequired']),
         rewardsAvailable: _int(json['rewardsAvailable']),
+        services: _services(json['services']),
       );
 }
 
@@ -190,6 +231,73 @@ class MembershipResult {
         membershipExpiry: _date(json['membershipExpiry']),
       );
 }
+
+/// One service of a multi-service card, as the API's serviceApiShape sends it.
+/// Counts are this service's own; the card's stampCount is the total.
+class CardService {
+  const CardService({
+    required this.id,
+    required this.name,
+    required this.stampCount,
+    required this.stampsRequired,
+    required this.rewardsAvailable,
+    required this.stampsUntilReward,
+    required this.rewardDescription,
+    required this.isLadder,
+  });
+
+  final String id;
+  final String name;
+  final int stampCount;
+  final int stampsRequired;
+  final int rewardsAvailable;
+
+  /// Stamps to the next reward — the next rung on a ladder.
+  final int stampsUntilReward;
+
+  /// The reward currently on offer: the next rung's on a ladder.
+  final String rewardDescription;
+
+  /// A reward ladder banks each rung by itself as stamps land, so there is no
+  /// full row waiting to be banked by hand.
+  final bool isLadder;
+
+  /// Stands in for a service the card no longer lists, so a stale selection
+  /// renders zeros instead of throwing.
+  factory CardService.missing(String id) => CardService(
+    id: id,
+    name: id,
+    stampCount: 0,
+    stampsRequired: 0,
+    rewardsAvailable: 0,
+    stampsUntilReward: 0,
+    rewardDescription: '',
+    isLadder: false,
+  );
+
+  factory CardService.fromJson(Map<String, dynamic> json) {
+    final reward = ((json['currentReward'] as Map?) ?? const {})
+        .cast<String, dynamic>();
+    final rungs = json['rewardMilestones'];
+    return CardService(
+      id: json['id'] as String,
+      name: (json['name'] as String?) ?? (json['id'] as String),
+      stampCount: _int(json['stampCount']),
+      stampsRequired: _int(json['stampsRequired']),
+      rewardsAvailable: _int(json['rewardsAvailable']),
+      stampsUntilReward: _int(json['stampsUntilReward']),
+      rewardDescription: (reward['description'] as String?) ?? '',
+      isLadder: rungs is List && rungs.length >= 2,
+    );
+  }
+}
+
+List<CardService> _services(Object? value) => value is List
+    ? value
+          .whereType<Map>()
+          .map((m) => CardService.fromJson(m.cast<String, dynamic>()))
+          .toList(growable: false)
+    : const [];
 
 /// Postgres BIGINT and NUMERIC reach JSON as strings through node-postgres, and
 /// a missing key reaches here as null. All three mean zero to a counter.

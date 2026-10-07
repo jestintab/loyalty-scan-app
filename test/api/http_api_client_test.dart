@@ -162,6 +162,49 @@ void main() {
       expect(result.stampCount, 5);
       expect(result.rewardsAvailable, 0);
     });
+
+    test('service actions send the serviceId, and only when given', () async {
+      final sent = <http.Request>[];
+      final client = HttpApiClient(
+        baseUrl: 'https://api.test',
+        httpClient: respondWith(
+          200,
+          jsonEncode({
+            'cardId': 'MSC1234567',
+            'serviceId': 's1',
+            'stampCount': 4,
+            'rewardsAvailable': 0,
+            'services': [],
+          }),
+          capture: sent,
+        ),
+      );
+
+      await client.addStamps(
+        cardId: 'MSC1234567',
+        businessId: 'biz-1',
+        increment: 2,
+        serviceId: 's1',
+      );
+      await client.addToRewards(
+        cardId: 'MSC1234567',
+        businessId: 'biz-1',
+        serviceId: 's1',
+      );
+      await client.redeem(
+        cardId: 'MSC1234567',
+        businessId: 'biz-1',
+        serviceId: 's2',
+      );
+      await client.redeem(cardId: 'MSC1234567', businessId: 'biz-1');
+
+      expect(sent.map((r) => jsonDecode(r.body)).toList(), [
+        {'businessId': 'biz-1', 'increment': 2, 'serviceId': 's1'},
+        {'businessId': 'biz-1', 'serviceId': 's1'},
+        {'businessId': 'biz-1', 'serviceId': 's2'},
+        {'businessId': 'biz-1'},
+      ]);
+    });
   });
 }
 

@@ -181,4 +181,97 @@ void main() {
       expect(page.nextCursor, isNull);
     });
   });
+
+  group('LoyaltyCard services', () {
+    test('reads each service of a multi-service card', () {
+      final card = LoyaltyCard.fromJson(
+        jsonDecode('''
+        {"cardId":"MSC1234567","businessId":"biz-1","templateType":"multi_service",
+         "stampCount":3,"rewardsAvailable":1,"merchantData":{"stampsRequired":0},
+         "services":[
+           {"id":"s1","name":"Mani/Pedi","stampCount":2,"stampsRequired":5,
+            "rewardsAvailable":1,"stampsUntilReward":3,
+            "currentReward":{"description":"Free mani/pedi","label":null},
+            "rewardMilestones":[]},
+           {"id":"s2","name":"Blowdry","stampCount":"1","stampsRequired":"6",
+            "rewardsAvailable":0,"stampsUntilReward":2,
+            "currentReward":{"description":"20% off","label":null},
+            "rewardMilestones":[
+              {"stampsRequired":3,"rewardDescription":"20% off","rewardLabel":null},
+              {"stampsRequired":3,"rewardDescription":"Free","rewardLabel":null}]}
+         ]}
+      '''),
+      );
+
+      expect(card.services.map((s) => s.id), ['s1', 's2']);
+      expect(card.services[0].name, 'Mani/Pedi');
+      expect(card.services[0].rewardsAvailable, 1);
+      expect(card.services[0].rewardDescription, 'Free mani/pedi');
+      expect(card.services[0].isLadder, isFalse);
+      // Counts that arrive as strings still read (node-postgres BIGINT).
+      expect(card.services[1].stampCount, 1);
+      expect(card.services[1].stampsRequired, 6);
+      expect(card.services[1].isLadder, isTrue);
+      expect(card.services[1].stampsUntilReward, 2);
+    });
+
+    test('a reward card, or an older response, has no services', () {
+      final card = LoyaltyCard.fromJson(
+        jsonDecode('''
+        {"cardId":"ABC1234567","businessId":"biz-1","templateType":"reward",
+         "stampCount":3,"rewardsAvailable":0,"merchantData":{"stampsRequired":10}}
+      '''),
+      );
+      expect(card.services, isEmpty);
+    });
+
+    test('an action result carries services when the API sends them', () {
+      final withServices = CardActionResult.fromJson({
+        'stampCount': 5,
+        'rewardsAvailable': 1,
+        'services': [
+          {
+            'id': 's1',
+            'name': 'Mani/Pedi',
+            'stampCount': 4,
+            'stampsRequired': 5,
+            'rewardsAvailable': 1,
+            'stampsUntilReward': 1,
+            'currentReward': {'description': 'Free', 'label': null},
+            'rewardMilestones': [],
+          },
+        ],
+      });
+      expect(withServices.services.single.stampCount, 4);
+
+      final without = CardActionResult.fromJson({
+        'stampCount': 4,
+        'stampsRequired': 10,
+        'rewardsAvailable': 0,
+      });
+      expect(without.services, isEmpty);
+    });
+
+    test(
+      'withServiceState replaces services and totals, keeping the customer',
+      () {
+        final card = LoyaltyCard.fromJson(
+          jsonDecode('''
+          {"cardId":"MSC1234567","businessId":"biz-1","templateType":"multi_service",
+           "userName":"Mithayel","stampCount":3,"rewardsAvailable":1,"services":[]}
+        '''),
+        );
+        final next = card.withServiceState(
+          services: [CardService.missing('s1')],
+          stampCount: 7,
+          rewardsAvailable: 2,
+        );
+        expect(next.userName, 'Mithayel');
+        expect(next.templateType, 'multi_service');
+        expect(next.stampCount, 7);
+        expect(next.rewardsAvailable, 2);
+        expect(next.services.single.id, 's1');
+      },
+    );
+  });
 }

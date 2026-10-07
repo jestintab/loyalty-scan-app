@@ -22,20 +22,25 @@ abstract class ApiClient {
     required String businessId,
   });
 
+  /// [serviceId] picks the service on a multi-service card; null for any
+  /// other card. The same goes for [addToRewards] and [redeem].
   Future<CardActionResult> addStamps({
     required String cardId,
     required String businessId,
     required int increment,
+    String? serviceId,
   });
 
   Future<CardActionResult> addToRewards({
     required String cardId,
     required String businessId,
+    String? serviceId,
   });
 
   Future<CardActionResult> redeem({
     required String cardId,
     required String businessId,
+    String? serviceId,
   });
 
   /// [points] is signed: positive adds, negative deducts.
@@ -161,11 +166,17 @@ class HttpApiClient implements ApiClient {
     required String cardId,
     required String businessId,
     required int increment,
+    String? serviceId,
   }) async {
     final json = await _send(
       'POST',
       _uri(['api', 'passes', cardId, 'stamp']),
-      body: {'businessId': businessId, 'increment': increment},
+      // Only on multi-service cards: the API refuses a serviceId anywhere else.
+      body: {
+        'businessId': businessId,
+        'increment': increment,
+        'serviceId': ?serviceId,
+      },
     );
     return CardActionResult.fromJson(json);
   }
@@ -174,11 +185,12 @@ class HttpApiClient implements ApiClient {
   Future<CardActionResult> addToRewards({
     required String cardId,
     required String businessId,
+    String? serviceId,
   }) async {
     final json = await _send(
       'POST',
       _uri(['api', 'passes', cardId, 'add-reward']),
-      body: {'businessId': businessId},
+      body: {'businessId': businessId, 'serviceId': ?serviceId},
     );
     return CardActionResult.fromJson(json);
   }
@@ -187,11 +199,12 @@ class HttpApiClient implements ApiClient {
   Future<CardActionResult> redeem({
     required String cardId,
     required String businessId,
+    String? serviceId,
   }) async {
     final json = await _send(
       'POST',
       _uri(['api', 'passes', cardId, 'redeem']),
-      body: {'businessId': businessId},
+      body: {'businessId': businessId, 'serviceId': ?serviceId},
     );
     return CardActionResult.fromJson(json);
   }

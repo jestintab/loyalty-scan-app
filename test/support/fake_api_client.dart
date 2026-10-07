@@ -68,8 +68,13 @@ class FakeApiClient implements ApiClient {
     required String cardId,
     required String businessId,
     required int increment,
+    String? serviceId,
   }) async {
-    actions.add('addStamps:$increment');
+    actions.add(
+      serviceId == null
+          ? 'addStamps:$increment'
+          : 'addStamps:$increment@$serviceId',
+    );
     await _wait();
     if (actionError != null) throw actionError!;
     return actionResult!;
@@ -79,8 +84,9 @@ class FakeApiClient implements ApiClient {
   Future<CardActionResult> addToRewards({
     required String cardId,
     required String businessId,
+    String? serviceId,
   }) async {
-    actions.add('addToRewards');
+    actions.add(serviceId == null ? 'addToRewards' : 'addToRewards@$serviceId');
     await _wait();
     if (actionError != null) throw actionError!;
     return actionResult!;
@@ -90,8 +96,9 @@ class FakeApiClient implements ApiClient {
   Future<CardActionResult> redeem({
     required String cardId,
     required String businessId,
+    String? serviceId,
   }) async {
-    actions.add('redeem');
+    actions.add(serviceId == null ? 'redeem' : 'redeem@$serviceId');
     await _wait();
     if (actionError != null) throw actionError!;
     return actionResult!;
