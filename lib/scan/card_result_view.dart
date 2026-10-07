@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api/models/loyalty_card.dart';
 import '../ui/message_view.dart';
 import 'membership_actions.dart';
+import 'multi_service_actions.dart';
 import 'points_actions.dart';
 import 'reward_actions.dart';
 
@@ -28,6 +29,7 @@ class CardResultView extends StatelessWidget {
         const SizedBox(height: 20),
         switch (card.templateType) {
           'reward' => RewardActions(card: card),
+          'multi_service' => MultiServiceActions(card: card),
           'points' => PointsActions(card: card),
           'membership' => MembershipActions(card: card),
           _ => const MessageView(
