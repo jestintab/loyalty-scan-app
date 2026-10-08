@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qwallet_scan/api/api_client.dart';
+import 'package:qwallet_scan/api/api_exception.dart';
 import 'package:qwallet_scan/api/models/check_in_summary.dart';
 import 'package:qwallet_scan/api/models/loyalty_card.dart';
 import 'package:qwallet_scan/api/models/scan_log_entry.dart';
@@ -190,4 +191,29 @@ void main() {
       expect(find.text('Customer'), findsOneWidget);
     },
   );
+
+  testWidgets('a refused check-in shows its reason once, above Renew', (
+    tester,
+  ) async {
+    await pump(tester, base(type: 'membership', checkIn: summary));
+    api.actionError = ApiException.fromResponse(
+      403,
+      '{"error":"Access denied"}',
+    );
+
+    await tester.tap(find.text('Check in'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text("You don't have access to this business."),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .getTopLeft(find.text("You don't have access to this business."))
+          .dy,
+      lessThan(tester.getTopLeft(find.text('Renew')).dy),
+    );
+    expect(find.text('Dashboard'), findsNothing);
+  });
 }

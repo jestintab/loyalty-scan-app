@@ -8,9 +8,18 @@ import 'recent_actions.dart';
 import 'scan_notifier.dart';
 
 class MembershipActions extends ConsumerStatefulWidget {
-  const MembershipActions({super.key, required this.card});
+  const MembershipActions({
+    super.key,
+    required this.card,
+    this.showError = true,
+  });
 
   final LoyaltyCard card;
+
+  /// False when CheckInActions sits above this on the same card: the scan
+  /// state holds one error for both, and it is shown once, up there, so a
+  /// failed check-in is not read as a failed renewal (or missed below it).
+  final bool showError;
 
   @override
   ConsumerState<MembershipActions> createState() => _MembershipActionsState();
@@ -73,7 +82,7 @@ class _MembershipActionsState extends ConsumerState<MembershipActions> {
                 'Membership renewed by $_months month${_months == 1 ? '' : 's'}.',
           ),
         ),
-        if (error != null) ...[
+        if (widget.showError && error != null) ...[
           const SizedBox(height: 12),
           Text(error, style: TextStyle(color: theme.colorScheme.error)),
         ],

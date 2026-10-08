@@ -28,6 +28,7 @@ class CheckInActions extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(scanProvider);
     final busy = state is ScanFound && state.busy;
+    final error = state is ScanFound ? state.actionError : null;
     final current = state is ScanFound ? state.card : card;
     final theme = Theme.of(context);
 
@@ -49,6 +50,10 @@ class CheckInActions extends ConsumerWidget {
             confirmation: (c) => 'Checked in. Visit ${c.checkIn?.visits ?? 1}.',
           ),
         ),
+        if (error != null) ...[
+          const SizedBox(height: 12),
+          Text(error, style: TextStyle(color: theme.colorScheme.error)),
+        ],
       ],
     );
   }

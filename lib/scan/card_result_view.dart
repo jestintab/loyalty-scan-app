@@ -39,7 +39,7 @@ class CardResultView extends StatelessWidget {
                 CheckInActions(card: card),
                 const Divider(height: 32),
               ],
-              MembershipActions(card: card),
+              MembershipActions(card: card, showError: card.checkIn == null),
             ],
           ),
           _ => const MessageView(
