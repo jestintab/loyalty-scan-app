@@ -7,6 +7,7 @@ enum CardAction {
   addReward('banked a reward on'),
   redeem('redeemed a reward on'),
   points('changed the points on'),
+  checkIn('checked in'),
   membership('renewed');
 
   const CardAction(this.pastTense);

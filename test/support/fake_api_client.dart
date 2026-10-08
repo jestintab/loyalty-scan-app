@@ -1,3 +1,4 @@
+import 'package:qwallet_scan/api/models/check_in_summary.dart';
 import 'package:qwallet_scan/api/api_client.dart';
 import 'package:qwallet_scan/api/api_exception.dart';
 import 'package:qwallet_scan/api/models/loyalty_card.dart';
@@ -23,6 +24,7 @@ class FakeApiClient implements ApiClient {
 
   PointsResult? pointsResult;
   MembershipResult? membershipResult;
+  CheckInSummary? checkInResult;
 
   final List<ScanLogPage> logPages = [];
   ApiException? logError;
@@ -126,6 +128,17 @@ class FakeApiClient implements ApiClient {
     await _wait();
     if (actionError != null) throw actionError!;
     return membershipResult!;
+  }
+
+  @override
+  Future<CheckInSummary> checkIn({
+    required String cardId,
+    required String businessId,
+  }) async {
+    actions.add('checkIn');
+    await _wait();
+    if (actionError != null) throw actionError!;
+    return checkInResult!;
   }
 
   @override

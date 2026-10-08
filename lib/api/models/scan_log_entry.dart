@@ -1,4 +1,4 @@
-enum ScanLogType { stamp, redemption }
+enum ScanLogType { stamp, redemption, checkIn }
 
 /// One row of the union of scan_log and redemption_log the API returns.
 class ScanLogEntry {
@@ -26,9 +26,11 @@ class ScanLogEntry {
 
   factory ScanLogEntry.fromJson(Map<String, dynamic> json) => ScanLogEntry(
     id: _int(json['id']),
-    type: json['type'] == 'redemption'
-        ? ScanLogType.redemption
-        : ScanLogType.stamp,
+    type: switch (json['type']) {
+      'redemption' => ScanLogType.redemption,
+      'check_in' => ScanLogType.checkIn,
+      _ => ScanLogType.stamp,
+    },
     cardId: (json['cardId'] as String?) ?? '',
     staffName: json['staffName'] as String?,
     customerName: json['customerName'] as String?,

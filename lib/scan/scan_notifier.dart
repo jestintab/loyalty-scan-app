@@ -206,6 +206,33 @@ class ScanNotifier extends Notifier<ScanState> {
     }
   }
 
+  Future<LoyaltyCard?> checkIn() async {
+    final current = state;
+    if (current is! ScanFound || current.busy) return null;
+    final businessId = ref.read(businessIdProvider);
+    if (businessId == null) {
+      state = const ScanFailed('No shop selected. Sign in again.');
+      return null;
+    }
+
+    state = current.copyWith(busy: true);
+    try {
+      final summary = await ref
+          .read(apiClientProvider)
+          .checkIn(cardId: current.card.cardId, businessId: businessId);
+      final updated = current.card.withCheckIn(summary);
+      ref
+          .read(recentActionsProvider.notifier)
+          .record(updated.cardId, CardAction.checkIn);
+      state = ScanFound(updated);
+      return updated;
+    } on ApiException catch (e) {
+      await ref.read(authProvider.notifier).handleApiError(e);
+      state = ScanFound(current.card, actionError: e.message);
+      return null;
+    }
+  }
+
   Future<LoyaltyCard?> renewMembership(int months) async {
     final current = state;
     if (current is! ScanFound || current.busy) return null;

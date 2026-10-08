@@ -14,13 +14,22 @@ class ScanLogTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final redeemed = entry.type == ScanLogType.redemption;
+    final checkedIn = entry.type == ScanLogType.checkIn;
     return ListTile(
-      leading: Icon(redeemed ? Icons.redeem : Icons.check_circle_outline),
+      leading: Icon(
+        redeemed
+            ? Icons.redeem
+            : checkedIn
+            ? Icons.login
+            : Icons.check_circle_outline,
+      ),
       title: Text(entry.customerName ?? 'Customer'),
       subtitle: Text(
-        '${redeemed ? 'Reward redeemed' : '+${entry.stampsAdded} stamps'}'
-        ' · ${entry.stampsBefore} → ${entry.stampsAfter}'
-        '${entry.staffName != null ? ' · ${entry.staffName}' : ''}',
+        checkedIn
+            ? 'Checked in${entry.staffName != null ? ' · ${entry.staffName}' : ''}'
+            : '${redeemed ? 'Reward redeemed' : '+${entry.stampsAdded} stamps'}'
+                  ' · ${entry.stampsBefore} → ${entry.stampsAfter}'
+                  '${entry.staffName != null ? ' · ${entry.staffName}' : ''}',
       ),
       trailing: Text(formatTime(entry.loggedAt.toLocal())),
     );

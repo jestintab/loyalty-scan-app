@@ -1,3 +1,5 @@
+import 'check_in_summary.dart';
+
 /// Reads only the fields the counter needs. The API returns colours, image
 /// URLs and custom field definitions too — this app renders none of them.
 class LoyaltyCard {
@@ -19,6 +21,7 @@ class LoyaltyCard {
     required this.membershipCategory,
     required this.membershipExpiry,
     this.services = const [],
+    this.checkIn,
   });
 
   final String cardId;
@@ -50,6 +53,9 @@ class LoyaltyCard {
   /// every other card type, and for responses from before services existed.
   final List<CardService> services;
 
+  /// Membership cards only; null on every other card and on older APIs.
+  final CheckInSummary? checkIn;
+
   /// A copy carrying the counts an action returned. Only these three move —
   /// the customer and the card's identity do not change under a stamp.
   LoyaltyCard withRewardState({
@@ -74,6 +80,7 @@ class LoyaltyCard {
     membershipCategory: membershipCategory,
     membershipExpiry: membershipExpiry,
     services: services,
+    checkIn: checkIn,
   );
 
   LoyaltyCard withPointsState({
@@ -97,6 +104,7 @@ class LoyaltyCard {
     membershipCategory: membershipCategory,
     membershipExpiry: membershipExpiry,
     services: services,
+    checkIn: checkIn,
   );
 
   LoyaltyCard withMembershipState({
@@ -121,6 +129,7 @@ class LoyaltyCard {
     membershipCategory: membershipCategory,
     membershipExpiry: membershipExpiry,
     services: services,
+    checkIn: checkIn,
   );
 
   /// A copy carrying what a service action returned: every service's counts,
@@ -147,6 +156,28 @@ class LoyaltyCard {
     membershipCategory: membershipCategory,
     membershipExpiry: membershipExpiry,
     services: services,
+    checkIn: checkIn,
+  );
+
+  LoyaltyCard withCheckIn(CheckInSummary summary) => LoyaltyCard(
+    cardId: cardId,
+    businessId: businessId,
+    userName: userName,
+    userEmail: userEmail,
+    userPhone: userPhone,
+    templateType: templateType,
+    stampCount: stampCount,
+    rewardsAvailable: rewardsAvailable,
+    stampsRequired: stampsRequired,
+    rewardDescription: rewardDescription,
+    businessName: businessName,
+    pointsBalance: pointsBalance,
+    pointsExpiry: pointsExpiry,
+    membershipNumber: membershipNumber,
+    membershipCategory: membershipCategory,
+    membershipExpiry: membershipExpiry,
+    services: services,
+    checkIn: summary,
   );
 
   factory LoyaltyCard.fromJson(Map<String, dynamic> json) {
@@ -170,6 +201,7 @@ class LoyaltyCard {
       membershipCategory: json['membershipCategory'] as String?,
       membershipExpiry: _date(json['membershipExpiry']),
       services: _services(json['services']),
+      checkIn: CheckInSummary.fromJson(json['checkIn']),
     );
   }
 }

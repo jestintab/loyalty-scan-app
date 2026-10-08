@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../auth/auth_notifier.dart';
 import 'api_exception.dart';
+import 'models/check_in_summary.dart';
 import 'models/loyalty_card.dart';
 import 'models/scan_log_entry.dart';
 import 'models/session.dart';
@@ -54,6 +55,11 @@ abstract class ApiClient {
     required String cardId,
     required String businessId,
     required int expiryMonths,
+  });
+
+  Future<CheckInSummary> checkIn({
+    required String cardId,
+    required String businessId,
   });
 
   Future<ScanLogPage> fetchScanLog({
@@ -235,6 +241,20 @@ class HttpApiClient implements ApiClient {
       body: {'businessId': businessId, 'expiryMonths': expiryMonths},
     );
     return MembershipResult.fromJson(json);
+  }
+
+  @override
+  Future<CheckInSummary> checkIn({
+    required String cardId,
+    required String businessId,
+  }) async {
+    final json = await _send(
+      'POST',
+      _uri(['api', 'passes', cardId, 'check-in']),
+      body: {'businessId': businessId},
+    );
+    return CheckInSummary.fromJson(json['checkIn']) ??
+        const CheckInSummary(visits: 0, lastCheckInAt: null);
   }
 
   @override
