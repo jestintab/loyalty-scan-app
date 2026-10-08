@@ -292,4 +292,52 @@ void main() {
     expect(find.text('Blowdry stamped. 2 of 5.'), findsOneWidget);
     expect(api.actions, ['addStamps:1@s2']);
   });
+
+  List<CardService> fourServices() => [
+    service('s1', 'Mani/Pedi', 2, 5),
+    service('s2', 'Blowdry', 1, 5),
+    service('s3', 'Nails', 3, 5, rewards: 1),
+    service('s4', 'Brows', 0, 5),
+  ];
+
+  testWidgets('two services stay side by side on one row', (tester) async {
+    await pump(tester, multiCard());
+    final a = tester.getRect(find.byKey(const Key('service-s1')));
+    final b = tester.getRect(find.byKey(const Key('service-s2')));
+    expect(a.top, b.top);
+  });
+
+  testWidgets('four services wrap into two rows of two', (tester) async {
+    await pump(tester, multiCard(services: fourServices()));
+    final r = [
+      for (final id in ['s1', 's2', 's3', 's4'])
+        tester.getRect(find.byKey(Key('service-$id'))),
+    ];
+    expect(r[0].top, r[1].top);
+    expect(r[2].top, r[3].top);
+    expect(r[2].top, greaterThan(r[0].bottom));
+    expect(r[0].left, r[2].left);
+  });
+
+  testWidgets('three services: the third spans the full width', (tester) async {
+    await pump(tester, multiCard(services: fourServices().take(3).toList()));
+    final first = tester.getRect(find.byKey(const Key('service-s1')));
+    final third = tester.getRect(find.byKey(const Key('service-s3')));
+    expect(third.width, greaterThan(first.width * 1.5));
+  });
+
+  testWidgets('the fourth service stamps its own serviceId', (tester) async {
+    await pump(tester, multiCard(services: fourServices()));
+    api.actionResult = CardActionResult(
+      stampCount: 7,
+      stampsRequired: 0,
+      rewardsAvailable: 1,
+      services: [...fourServices().take(3), service('s4', 'Brows', 1, 5)],
+    );
+    await tester.tap(find.byKey(const Key('service-s4')));
+    await tester.pumpAndSettle();
+    await tester.tap(button('Add Brows Stamps'));
+    await tester.pumpAndSettle();
+    expect(api.actions, ['addStamps:1@s4']);
+  });
 }

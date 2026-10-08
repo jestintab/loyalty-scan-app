@@ -34,34 +34,26 @@ class _MultiServiceActionsState extends ConsumerState<MultiServiceActions> {
       return const Text('This card has no services.');
     }
 
+    Widget tile(CardService s) => _ServiceTile(
+      service: s,
+      selected: s.id == selected,
+      // Not while an action is in flight: switching would dispose
+      // the controls waiting on it, and the stamp would land with
+      // no confirmation.
+      onTap: busy
+          ? null
+          : () {
+              ref.read(scanProvider.notifier).clearActionError();
+              setState(() => _selectedId = s.id);
+            },
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text('Choose a service', style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (final (i, s) in card.services.indexed) ...[
-              if (i > 0) const SizedBox(width: 8),
-              Expanded(
-                child: _ServiceTile(
-                  service: s,
-                  selected: s.id == selected,
-                  // Not while an action is in flight: switching would dispose
-                  // the controls waiting on it, and the stamp would land with
-                  // no confirmation.
-                  onTap: busy
-                      ? null
-                      : () {
-                          ref.read(scanProvider.notifier).clearActionError();
-                          setState(() => _selectedId = s.id);
-                        },
-                ),
-              ),
-            ],
-          ],
-        ),
+        _picker(card.services, tile),
         const SizedBox(height: 20),
         if (selected == null)
           Text(
@@ -76,6 +68,32 @@ class _MultiServiceActionsState extends ConsumerState<MultiServiceActions> {
             card: card,
             targetOf: (c) => StampTarget.forService(c, selected),
           ),
+      ],
+    );
+  }
+
+  /// Two per row: one row for a 2-service card (unchanged), two rows for
+  /// 3-4. An odd last tile spans the row, matching the dashboard scan page.
+  Widget _picker(
+    List<CardService> services,
+    Widget Function(CardService) tile,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var r = 0; r < services.length; r += 2) ...[
+          if (r > 0) const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: tile(services[r])),
+              if (r + 1 < services.length) ...[
+                const SizedBox(width: 8),
+                Expanded(child: tile(services[r + 1])),
+              ],
+            ],
+          ),
+        ],
       ],
     );
   }
