@@ -190,13 +190,91 @@ class ScanNotifier extends Notifier<ScanState> {
             businessId: businessId,
             points: points,
           );
+      // The program view too: an adjust on a convert card can issue a reward.
       final updated = current.card.withPointsState(
         pointsBalance: result.pointsBalance,
         pointsExpiry: result.pointsExpiry,
+        pointsProgram: result.pointsProgram,
       );
       ref
           .read(recentActionsProvider.notifier)
           .record(updated.cardId, CardAction.points);
+      state = ScanFound(updated);
+      return updated;
+    } on ApiException catch (e) {
+      await ref.read(authProvider.notifier).handleApiError(e);
+      state = ScanFound(current.card, actionError: e.message);
+      return null;
+    }
+  }
+
+  /// A purchase on a points card with a program: a bill [amount], or an
+  /// [itemId] with a [quantity].
+  Future<LoyaltyCard?> earnPoints({
+    double? amount,
+    String? itemId,
+    int? quantity,
+  }) => _pointsAction(
+    CardAction.earnPoints,
+    (api, cardId, businessId) => api.earnPoints(
+      cardId: cardId,
+      businessId: businessId,
+      amount: amount,
+      itemId: itemId,
+      quantity: quantity,
+    ),
+  );
+
+  /// Convert mode passes [readyId] (the ready reward staff tapped); choose
+  /// mode passes [rewardId] (the reward the customer picked).
+  Future<LoyaltyCard?> redeemPointsReward({
+    String? readyId,
+    String? rewardId,
+  }) => _pointsAction(
+    CardAction.redeem,
+    (api, cardId, businessId) => api.redeemPointsReward(
+      cardId: cardId,
+      businessId: businessId,
+      readyId: readyId,
+      rewardId: rewardId,
+    ),
+  );
+
+  /// The last points action's full result, for the confirmation text
+  /// ("Added 87 points. Balance 167 · Free coffee ready.").
+  PointsResult? lastPointsResult;
+
+  Future<LoyaltyCard?> _pointsAction(
+    CardAction action,
+    Future<PointsResult> Function(
+      ApiClient api,
+      String cardId,
+      String businessId,
+    )
+    call,
+  ) async {
+    final current = state;
+    if (current is! ScanFound || current.busy) return null;
+    final businessId = ref.read(businessIdProvider);
+    if (businessId == null) {
+      state = const ScanFailed('No shop selected. Sign in again.');
+      return null;
+    }
+
+    state = current.copyWith(busy: true);
+    try {
+      final result = await call(
+        ref.read(apiClientProvider),
+        current.card.cardId,
+        businessId,
+      );
+      lastPointsResult = result;
+      final updated = current.card.withPointsState(
+        pointsBalance: result.pointsBalance,
+        pointsExpiry: result.pointsExpiry,
+        pointsProgram: result.pointsProgram,
+      );
+      ref.read(recentActionsProvider.notifier).record(updated.cardId, action);
       state = ScanFound(updated);
       return updated;
     } on ApiException catch (e) {
