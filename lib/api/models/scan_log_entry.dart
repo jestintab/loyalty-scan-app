@@ -1,4 +1,11 @@
-enum ScanLogType { stamp, redemption, checkIn }
+enum ScanLogType {
+  stamp,
+  redemption,
+  checkIn,
+  pointsEarn,
+  pointsRedeem,
+  pointsAdjust,
+}
 
 /// One row of the union of scan_log and redemption_log the API returns.
 class ScanLogEntry {
@@ -12,6 +19,9 @@ class ScanLogEntry {
     required this.stampsBefore,
     required this.stampsAfter,
     required this.loggedAt,
+    this.billAmount,
+    this.itemName,
+    this.rewardName,
   });
 
   final int id;
@@ -24,11 +34,25 @@ class ScanLogEntry {
   final int stampsAfter;
   final DateTime loggedAt;
 
+  /// Points rows only. For points rows the stamps* numbers are points: the
+  /// points earned or adjusted, and the balance before and after.
+  final String? billAmount;
+  final String? itemName;
+  final String? rewardName;
+
+  bool get isPoints =>
+      type == ScanLogType.pointsEarn ||
+      type == ScanLogType.pointsRedeem ||
+      type == ScanLogType.pointsAdjust;
+
   factory ScanLogEntry.fromJson(Map<String, dynamic> json) => ScanLogEntry(
     id: _int(json['id']),
     type: switch (json['type']) {
       'redemption' => ScanLogType.redemption,
       'check_in' => ScanLogType.checkIn,
+      'points_earn' => ScanLogType.pointsEarn,
+      'points_redeem' => ScanLogType.pointsRedeem,
+      'points_adjust' => ScanLogType.pointsAdjust,
       _ => ScanLogType.stamp,
     },
     cardId: (json['cardId'] as String?) ?? '',
@@ -40,6 +64,14 @@ class ScanLogEntry {
     loggedAt:
         DateTime.tryParse(json['loggedAt'] as String? ?? '') ??
         DateTime.fromMillisecondsSinceEpoch(0),
+    // NUMERIC arrives as a string ("87.50"); tolerate a number too.
+    billAmount: switch (json['billAmount']) {
+      final num n => n.toStringAsFixed(2),
+      final String s => s,
+      _ => null,
+    },
+    itemName: json['itemName'] as String?,
+    rewardName: json['rewardName'] as String?,
   );
 }
 

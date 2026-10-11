@@ -279,7 +279,17 @@ class ScanNotifier extends Notifier<ScanState> {
       return updated;
     } on ApiException catch (e) {
       await ref.read(authProvider.notifier).handleApiError(e);
-      state = ScanFound(current.card, actionError: e.message);
+      // A refusal usually means the card changed at another till (the reward
+      // was already redeemed): reload it so the buttons match the card.
+      LoyaltyCard card = current.card;
+      try {
+        card = await ref
+            .read(apiClientProvider)
+            .fetchCard(cardId: current.card.cardId, businessId: businessId);
+      } on ApiException {
+        // Keep what we had; the error below is what staff need to see.
+      }
+      state = ScanFound(card, actionError: e.message);
       return null;
     }
   }

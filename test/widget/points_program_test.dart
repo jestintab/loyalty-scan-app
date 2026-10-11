@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qwallet_scan/api/api_client.dart';
+import 'package:qwallet_scan/api/api_exception.dart';
+import 'package:qwallet_scan/api/models/scan_log_entry.dart';
+import 'package:qwallet_scan/logs/scan_log_tile.dart';
+import 'package:qwallet_scan/scan/action_message.dart';
 import 'package:qwallet_scan/api/models/loyalty_card.dart';
 import 'package:qwallet_scan/auth/auth_notifier.dart';
 import 'package:qwallet_scan/api/models/points_program.dart';
@@ -120,7 +124,7 @@ void main() {
     expect(find.text('20 points to Free coffee'), findsOneWidget);
     await tester.enterText(find.byKey(const Key('points-bill')), '87.50');
     await tester.pump();
-    expect(find.text('= 87 points'), findsOneWidget);
+    expect(find.text('= 87 points · Free coffee ready'), findsOneWidget);
     await tester.tap(find.text('Add purchase'));
     await tester.pumpAndSettle();
     expect(api.actions, contains('earnPoints:amount:87.5'));
@@ -202,5 +206,167 @@ void main() {
     await pump(tester, c, PointsActions(card: c));
     expect(find.text('Add Points'), findsOneWidget);
     expect(find.text('Add purchase'), findsNothing);
+  });
+
+  testWidgets('amount preview says when the purchase issues the next reward', (
+    tester,
+  ) async {
+    final c = base(type: 'points', pointsBalance: 80, pointsProgram: view());
+    await pump(tester, c, PointsActions(card: c));
+    await tester.enterText(find.byKey(const Key('points-bill')), '10');
+    await tester.pump();
+    expect(find.text('= 10 points'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('points-bill')), '25');
+    await tester.pump();
+    expect(find.text('= 25 points · Free coffee ready'), findsOneWidget);
+  });
+
+  testWidgets('choose: the confirmation names the reward the server redeemed', (
+    tester,
+  ) async {
+    final c = base(
+      type: 'points',
+      pointsBalance: 120,
+      pointsProgram: view(mode: 'choose'),
+    );
+    await pump(tester, c, PointsActions(card: c));
+    api.pointsResult = PointsResult(
+      pointsBalance: 20,
+      pointsExpiry: null,
+      rewardName: 'Free espresso',
+      pointsProgram: view(mode: 'choose'),
+    );
+    await tester.tap(find.text('Redeem Free coffee (−100)'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.container().read(actionMessageProvider),
+      'Redeemed Free espresso. Balance 20.',
+    );
+  });
+
+  testWidgets('a refused redeem reloads the card so a stale button goes away', (
+    tester,
+  ) async {
+    final c = base(
+      type: 'points',
+      pointsBalance: 30,
+      pointsProgram: view(
+        ready: [
+          {'readyId': 'rd1', 'rewardId': 'r1', 'name': 'Free coffee'},
+        ],
+      ),
+    );
+    await pump(tester, c, PointsActions(card: c));
+    final lookupsBefore = api.fetchedCardIds.length;
+    api.card = base(type: 'points', pointsBalance: 30, pointsProgram: view());
+    api.actionError = ApiException(
+      ApiErrorKind.badRequest,
+      'No reward ready to redeem',
+    );
+    await tester.ensureVisible(find.text('Redeem Free coffee'));
+    await tester.tap(find.text('Redeem Free coffee'));
+    await tester.pumpAndSettle();
+    expect(api.fetchedCardIds.length, lookupsBefore + 1);
+    expect(find.text('Redeem Free coffee'), findsNothing);
+    expect(find.text('No reward ready to redeem'), findsOneWidget);
+  });
+
+  testWidgets('an adjust that issues a reward says so', (tester) async {
+    final c = base(type: 'points', pointsBalance: 80, pointsProgram: view());
+    await pump(tester, c, PointsActions(card: c));
+    api.pointsResult = PointsResult(
+      pointsBalance: 30,
+      pointsExpiry: null,
+      readyRewards: const [
+        ReadyReward(readyId: 'rd1', rewardId: 'r1', name: 'Free coffee'),
+      ],
+      pointsProgram: view(
+        ready: [
+          {'readyId': 'rd1', 'rewardId': 'r1', 'name': 'Free coffee'},
+        ],
+      ),
+    );
+    await tester.enterText(find.byKey(const Key('points-amount')), '50');
+    await tester.ensureVisible(find.text('Add Points'));
+    await tester.tap(find.text('Add Points'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.container().read(actionMessageProvider),
+      'Added 50 points. Balance 30 · Free coffee ready.',
+    );
+  });
+
+  testWidgets('activity log rows for points read as points, not stamps', (
+    tester,
+  ) async {
+    Widget tile(Map<String, dynamic> json) => MaterialApp(
+      home: Scaffold(body: ScanLogTile(entry: ScanLogEntry.fromJson(json))),
+    );
+    final base0 = {
+      'id': 1,
+      'cardId': 'PTS1',
+      'staffName': 'Till',
+      'customerName': 'Ada',
+      'loggedAt': '2026-10-11T10:00:00.000Z',
+    };
+    await tester.pumpWidget(
+      tile({
+        ...base0,
+        'type': 'points_earn',
+        'stampsAdded': 87,
+        'stampsBefore': 80,
+        'stampsAfter': 67,
+        'billAmount': '87.50',
+        'itemName': null,
+        'rewardName': 'Free coffee',
+      }),
+    );
+    expect(
+      find.text(
+        'Purchase QAR 87.50 · +87 points · Free coffee ready · 80 → 67 pts · Till',
+      ),
+      findsOneWidget,
+    );
+    await tester.pumpWidget(
+      tile({
+        ...base0,
+        'type': 'points_redeem',
+        'stampsAdded': 0,
+        'stampsBefore': 130,
+        'stampsAfter': 130,
+        'rewardName': 'Free coffee',
+      }),
+    );
+    expect(
+      find.text('Redeemed Free coffee · 130 → 130 pts · Till'),
+      findsOneWidget,
+    );
+    await tester.pumpWidget(
+      tile({
+        ...base0,
+        'type': 'points_adjust',
+        'stampsAdded': -10,
+        'stampsBefore': 40,
+        'stampsAfter': 30,
+      }),
+    );
+    expect(
+      find.text('Adjusted −10 points · 40 → 30 pts · Till'),
+      findsOneWidget,
+    );
+    await tester.pumpWidget(
+      tile({
+        ...base0,
+        'type': 'points_earn',
+        'stampsAdded': 60,
+        'stampsBefore': 0,
+        'stampsAfter': 60,
+        'itemName': 'Premium wash ×3',
+      }),
+    );
+    expect(
+      find.text('Premium wash ×3 · +60 points · 0 → 60 pts · Till'),
+      findsOneWidget,
+    );
   });
 }

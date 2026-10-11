@@ -51,11 +51,24 @@ class _PointsActionsState extends ConsumerState<PointsActions> {
       run: () => ref
           .read(scanProvider.notifier)
           .adjustPoints(deduct ? -parsed : parsed),
-      confirmation: (card) =>
-          '${deduct ? 'Deducted' : 'Added'} $parsed points. '
-          'Balance ${card.pointsBalance}.',
+      confirmation: (card) {
+        if (deduct) {
+          return 'Deducted $parsed points. Balance ${card.pointsBalance}.';
+        }
+        // An add on a convert card can issue rewards (and lower the balance).
+        final before = widget.card.pointsProgram?.readyRewards.length ?? 0;
+        final ready = card.pointsProgram?.readyRewards ?? const <ReadyReward>[];
+        final issued = ready.length > before
+            ? ready.sublist(before).map((r) => r.name).toList()
+            : const <String>[];
+        return 'Added $parsed points. Balance ${card.pointsBalance}'
+            '${issued.isEmpty ? '' : ' · ${issued.join(', ')} ready'}.';
+      },
     );
   }
+
+  String _redeemedName(String shown) =>
+      ref.read(scanProvider.notifier).lastPointsResult?.rewardName ?? shown;
 
   /// "Added 87 points. Balance 167 · Free coffee ready."
   String _earned(LoyaltyCard c) {
@@ -127,6 +140,15 @@ class _PointsActionsState extends ConsumerState<PointsActions> {
   ) {
     if (program.byAmount) {
       final preview = program.pointsForAmount(_bill.text);
+      final next = program.nextReward;
+      // Convert mode: say when this purchase will issue the next reward.
+      final hint =
+          program.converts &&
+              next != null &&
+              preview != null &&
+              preview >= next.pointsToGo
+          ? ' · ${next.name} ready'
+          : '';
       return [
         TextField(
           key: const Key('points-bill'),
@@ -143,7 +165,7 @@ class _PointsActionsState extends ConsumerState<PointsActions> {
         ),
         const SizedBox(height: 6),
         Text(
-          preview == null ? 'Enter an amount' : '= $preview points',
+          preview == null ? 'Enter an amount' : '= $preview points$hint',
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 8),
@@ -224,7 +246,7 @@ class _PointsActionsState extends ConsumerState<PointsActions> {
                 run: () => ref
                     .read(scanProvider.notifier)
                     .redeemPointsReward(readyId: r.readyId),
-                confirmation: (c) => 'Redeemed ${r.name}.',
+                confirmation: (c) => 'Redeemed ${_redeemedName(r.name)}.',
               ),
             ),
           ),
@@ -246,8 +268,10 @@ class _PointsActionsState extends ConsumerState<PointsActions> {
               run: () => ref
                   .read(scanProvider.notifier)
                   .redeemPointsReward(rewardId: r.id),
+              // The server's name: ids are kept by position, so after a
+              // merchant edit the reward redeemed may differ from the one shown.
               confirmation: (c) =>
-                  'Redeemed ${r.name}. Balance ${c.pointsBalance}.',
+                  'Redeemed ${_redeemedName(r.name)}. Balance ${c.pointsBalance}.',
             ),
           ),
         ),
