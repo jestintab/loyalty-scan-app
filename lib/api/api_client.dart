@@ -51,6 +51,26 @@ abstract class ApiClient {
     required int points,
   });
 
+  /// A purchase on a points card with a program: a bill [amount], or an
+  /// [itemId] with an optional [quantity].
+  Future<PointsResult> earnPoints({
+    required String cardId,
+    required String businessId,
+    double? amount,
+    String? itemId,
+    int? quantity,
+  });
+
+  /// Redeem on a points card with a program: [readyId] picks a ready reward
+  /// (convert mode, oldest if null); [rewardId] picks a reward to buy
+  /// (choose mode).
+  Future<PointsResult> redeemPointsReward({
+    required String cardId,
+    required String businessId,
+    String? readyId,
+    String? rewardId,
+  });
+
   Future<MembershipResult> renewMembership({
     required String cardId,
     required String businessId,
@@ -225,6 +245,46 @@ class HttpApiClient implements ApiClient {
       'POST',
       _uri(['api', 'passes', 'points', cardId]),
       body: {'businessId': businessId, 'points': points},
+    );
+    return PointsResult.fromJson(json);
+  }
+
+  @override
+  Future<PointsResult> earnPoints({
+    required String cardId,
+    required String businessId,
+    double? amount,
+    String? itemId,
+    int? quantity,
+  }) async {
+    final json = await _send(
+      'POST',
+      _uri(['api', 'passes', 'points', cardId, 'earn']),
+      body: {
+        'businessId': businessId,
+        'amount': ?amount,
+        'itemId': ?itemId,
+        'quantity': ?quantity,
+      },
+    );
+    return PointsResult.fromJson(json);
+  }
+
+  @override
+  Future<PointsResult> redeemPointsReward({
+    required String cardId,
+    required String businessId,
+    String? readyId,
+    String? rewardId,
+  }) async {
+    final json = await _send(
+      'POST',
+      _uri(['api', 'passes', 'points', cardId, 'redeem']),
+      body: {
+        'businessId': businessId,
+        'readyId': ?readyId,
+        'rewardId': ?rewardId,
+      },
     );
     return PointsResult.fromJson(json);
   }

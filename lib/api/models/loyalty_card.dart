@@ -1,4 +1,5 @@
 import 'check_in_summary.dart';
+import 'points_program.dart';
 
 /// Reads only the fields the counter needs. The API returns colours, image
 /// URLs and custom field definitions too — this app renders none of them.
@@ -22,6 +23,7 @@ class LoyaltyCard {
     required this.membershipExpiry,
     this.services = const [],
     this.checkIn,
+    this.pointsProgram,
   });
 
   final String cardId;
@@ -56,6 +58,10 @@ class LoyaltyCard {
   /// Membership cards only; null on every other card and on older APIs.
   final CheckInSummary? checkIn;
 
+  /// Points cards with a program; null for manual points cards, every other
+  /// type and older APIs.
+  final PointsProgramView? pointsProgram;
+
   /// A copy carrying the counts an action returned. Only these three move —
   /// the customer and the card's identity do not change under a stamp.
   LoyaltyCard withRewardState({
@@ -81,11 +87,13 @@ class LoyaltyCard {
     membershipExpiry: membershipExpiry,
     services: services,
     checkIn: checkIn,
+    pointsProgram: pointsProgram,
   );
 
   LoyaltyCard withPointsState({
     required int pointsBalance,
     required DateTime? pointsExpiry,
+    PointsProgramView? pointsProgram,
   }) => LoyaltyCard(
     cardId: cardId,
     businessId: businessId,
@@ -105,6 +113,7 @@ class LoyaltyCard {
     membershipExpiry: membershipExpiry,
     services: services,
     checkIn: checkIn,
+    pointsProgram: pointsProgram ?? this.pointsProgram,
   );
 
   LoyaltyCard withMembershipState({
@@ -130,6 +139,7 @@ class LoyaltyCard {
     membershipExpiry: membershipExpiry,
     services: services,
     checkIn: checkIn,
+    pointsProgram: pointsProgram,
   );
 
   /// A copy carrying what a service action returned: every service's counts,
@@ -157,6 +167,7 @@ class LoyaltyCard {
     membershipExpiry: membershipExpiry,
     services: services,
     checkIn: checkIn,
+    pointsProgram: pointsProgram,
   );
 
   LoyaltyCard withCheckIn(CheckInSummary summary) => LoyaltyCard(
@@ -178,6 +189,7 @@ class LoyaltyCard {
     membershipExpiry: membershipExpiry,
     services: services,
     checkIn: summary,
+    pointsProgram: pointsProgram,
   );
 
   factory LoyaltyCard.fromJson(Map<String, dynamic> json) {
@@ -202,6 +214,7 @@ class LoyaltyCard {
       membershipExpiry: _date(json['membershipExpiry']),
       services: _services(json['services']),
       checkIn: CheckInSummary.fromJson(json['checkIn']),
+      pointsProgram: PointsProgramView.fromJson(json['pointsProgram']),
     );
   }
 }
@@ -234,14 +247,37 @@ class CardActionResult {
 }
 
 class PointsResult {
-  const PointsResult({required this.pointsBalance, required this.pointsExpiry});
+  const PointsResult({
+    required this.pointsBalance,
+    required this.pointsExpiry,
+    this.readyRewards = const [],
+    this.pointsProgram,
+    this.pointsEarned = 0,
+    this.rewardsIssued = const [],
+    this.rewardName,
+  });
 
   final int pointsBalance;
   final DateTime? pointsExpiry;
+  final List<ReadyReward> readyRewards;
+  final PointsProgramView? pointsProgram;
+  final int pointsEarned;
+  final List<String> rewardsIssued;
+  final String? rewardName;
 
   factory PointsResult.fromJson(Map<String, dynamic> json) => PointsResult(
     pointsBalance: _int(json['pointsBalance']),
     pointsExpiry: _date(json['pointsExpiry']),
+    readyRewards: ReadyReward.listFrom(json['readyRewards']),
+    pointsProgram: PointsProgramView.fromJson(json['pointsProgram']),
+    pointsEarned: _int(json['pointsEarned']),
+    rewardsIssued:
+        (json['rewardsIssued'] is List
+                ? json['rewardsIssued'] as List
+                : const [])
+            .map((e) => '$e')
+            .toList(),
+    rewardName: json['rewardName'] as String?,
   );
 }
 

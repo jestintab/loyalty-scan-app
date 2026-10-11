@@ -133,6 +133,85 @@ void main() {
       },
     );
 
+    test('earnPoints posts an amount, or an item and quantity', () async {
+      final sent = <http.Request>[];
+      final client = HttpApiClient(
+        baseUrl: 'https://api.test',
+        httpClient: respondWith(
+          200,
+          jsonEncode({
+            'pointsBalance': 167,
+            'pointsExpiry': null,
+            'pointsEarned': 87,
+          }),
+          capture: sent,
+        ),
+      );
+      final r = await client.earnPoints(
+        cardId: 'ABC1234567',
+        businessId: 'biz-1',
+        amount: 87.5,
+      );
+      await client.earnPoints(
+        cardId: 'ABC1234567',
+        businessId: 'biz-1',
+        itemId: 'i2',
+        quantity: 2,
+      );
+      expect(
+        sent[0].url.toString(),
+        'https://api.test/api/passes/points/ABC1234567/earn',
+      );
+      expect(jsonDecode(sent[0].body), {'businessId': 'biz-1', 'amount': 87.5});
+      expect(jsonDecode(sent[1].body), {
+        'businessId': 'biz-1',
+        'itemId': 'i2',
+        'quantity': 2,
+      });
+      expect(r.pointsEarned, 87);
+    });
+
+    test(
+      'redeemPointsReward sends readyId or rewardId only when given',
+      () async {
+        final sent = <http.Request>[];
+        final client = HttpApiClient(
+          baseUrl: 'https://api.test',
+          httpClient: respondWith(
+            200,
+            jsonEncode({
+              'pointsBalance': 30,
+              'pointsExpiry': null,
+              'rewardName': 'Free coffee',
+            }),
+            capture: sent,
+          ),
+        );
+        await client.redeemPointsReward(
+          cardId: 'ABC1234567',
+          businessId: 'biz-1',
+          readyId: 'rd2',
+        );
+        await client.redeemPointsReward(
+          cardId: 'ABC1234567',
+          businessId: 'biz-1',
+          rewardId: 'r1',
+        );
+        expect(
+          sent[0].url.toString(),
+          'https://api.test/api/passes/points/ABC1234567/redeem',
+        );
+        expect(jsonDecode(sent[0].body), {
+          'businessId': 'biz-1',
+          'readyId': 'rd2',
+        });
+        expect(jsonDecode(sent[1].body), {
+          'businessId': 'biz-1',
+          'rewardId': 'r1',
+        });
+      },
+    );
+
     test('addStamps posts the increment and returns the new state', () async {
       final sent = <http.Request>[];
       final client = HttpApiClient(

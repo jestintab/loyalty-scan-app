@@ -119,6 +119,37 @@ class FakeApiClient implements ApiClient {
   }
 
   @override
+  Future<PointsResult> earnPoints({
+    required String cardId,
+    required String businessId,
+    double? amount,
+    String? itemId,
+    int? quantity,
+  }) async {
+    actions.add(
+      itemId != null
+          ? 'earnPoints:item:$itemId:${quantity ?? 1}'
+          : 'earnPoints:amount:$amount',
+    );
+    await _wait();
+    if (actionError != null) throw actionError!;
+    return pointsResult!;
+  }
+
+  @override
+  Future<PointsResult> redeemPointsReward({
+    required String cardId,
+    required String businessId,
+    String? readyId,
+    String? rewardId,
+  }) async {
+    actions.add('redeemPointsReward:${readyId ?? rewardId ?? 'oldest'}');
+    await _wait();
+    if (actionError != null) throw actionError!;
+    return pointsResult!;
+  }
+
+  @override
   Future<MembershipResult> renewMembership({
     required String cardId,
     required String businessId,

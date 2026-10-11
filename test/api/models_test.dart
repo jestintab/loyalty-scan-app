@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:qwallet_scan/api/models/loyalty_card.dart';
+import 'package:qwallet_scan/api/models/points_program.dart';
 import 'package:qwallet_scan/api/models/scan_log_entry.dart';
 import 'package:qwallet_scan/api/models/session.dart';
 
@@ -271,6 +272,98 @@ void main() {
         expect(next.stampCount, 7);
         expect(next.rewardsAvailable, 2);
         expect(next.services.single.id, 's1');
+      },
+    );
+  });
+
+  group('PointsProgramView', () {
+    final json = {
+      'earn': {'method': 'amount', 'rate': 1},
+      'mode': 'convert',
+      'rewards': [
+        {'id': 'r1', 'name': 'Free coffee', 'points': 100, 'imageUrl': null},
+        {'id': 'r2', 'name': 'Free lunch', 'points': 200, 'imageUrl': null},
+      ],
+      'readyRewards': [
+        {'readyId': 'rd1', 'rewardId': 'r1', 'name': 'Free coffee'},
+      ],
+      'nextReward': {'id': 'r2', 'name': 'Free lunch', 'pointsToGo': 70},
+    };
+
+    test('parses the API view', () {
+      final v = PointsProgramView.fromJson(json)!;
+      expect(v.earnMethod, 'amount');
+      expect(v.rate, 1);
+      expect(v.mode, 'convert');
+      expect(v.readyRewards.single.readyId, 'rd1');
+      expect(v.readyRewards.single.name, 'Free coffee');
+      expect(v.nextReward!.pointsToGo, 70);
+    });
+
+    test('null and non-maps parse to null (older APIs, manual cards)', () {
+      expect(PointsProgramView.fromJson(null), isNull);
+      expect(PointsProgramView.fromJson('x'), isNull);
+    });
+
+    test('preview uses integer cents and rounds down', () {
+      final v = PointsProgramView.fromJson(json)!;
+      expect(v.pointsForAmount('87.50'), 87);
+      expect(v.pointsForAmount('0.5'), 0);
+      expect(v.pointsForAmount('1.234'), isNull);
+      expect(v.pointsForAmount(''), isNull);
+      final hundred = PointsProgramView.fromJson({
+        ...json,
+        'earn': {'method': 'amount', 'rate': 100},
+      })!;
+      expect(hundred.pointsForAmount('0.29'), 29);
+      final half = PointsProgramView.fromJson({
+        ...json,
+        'earn': {'method': 'amount', 'rate': 0.5},
+      })!;
+      expect(half.pointsForAmount('87.50'), 43);
+    });
+
+    test(
+      'LoyaltyCard reads pointsProgram from the lookup and keeps it on copies',
+      () {
+        final card = LoyaltyCard.fromJson({
+          'cardId': 'ABC1234567',
+          'businessId': 'biz-1',
+          'templateType': 'points',
+          'pointsBalance': 130,
+          'pointsProgram': json,
+        });
+        expect(card.pointsProgram!.nextReward!.name, 'Free lunch');
+        expect(
+          card
+              .withPointsState(pointsBalance: 1, pointsExpiry: null)
+              .pointsProgram,
+          isNotNull,
+        );
+      },
+    );
+
+    test(
+      'PointsResult reads the program fields; older adjust replies still parse',
+      () {
+        final r = PointsResult.fromJson({
+          'pointsBalance': 167,
+          'pointsExpiry': null,
+          'pointsEarned': 87,
+          'rewardsIssued': ['Free coffee'],
+          'readyRewards': json['readyRewards'],
+          'pointsProgram': json,
+        });
+        expect(r.pointsEarned, 87);
+        expect(r.rewardsIssued, ['Free coffee']);
+        expect(r.readyRewards.single.readyId, 'rd1');
+        final old = PointsResult.fromJson({
+          'success': true,
+          'pointsBalance': 5,
+          'pointsExpiry': null,
+        });
+        expect(old.pointsBalance, 5);
+        expect(old.pointsProgram, isNull);
       },
     );
   });
