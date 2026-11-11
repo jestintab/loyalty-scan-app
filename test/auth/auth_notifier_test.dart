@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:qwallet_scan/api/api_client.dart';
@@ -181,6 +184,155 @@ void main() {
       expect((state as AuthSignedOut).error, isNull);
     },
   );
+
+  group('session renewal', () {
+    const storedSession = StoredAuth(
+      token: 'old-jwt',
+      name: 'Sam',
+      role: 'staff',
+      businessIds: ['biz-1'],
+      businessId: 'biz-1',
+    );
+
+    Session renewed({
+      String token = 'new-jwt',
+      List<String> businessIds = const ['biz-1'],
+      String role = 'staff',
+    }) => Session(
+      token: token,
+      userId: 7,
+      email: null,
+      name: 'Sam',
+      role: role,
+      businessIds: businessIds,
+    );
+
+    test('launch swaps the stored token for a fresh one', () async {
+      final container = containerWith();
+      store.stored = storedSession;
+      api.refreshResult = renewed();
+
+      await container.read(authProvider.notifier).restore();
+
+      expect(api.refreshCalls, ['old-jwt']);
+      expect(store.stored!.token, 'new-jwt');
+      expect(container.read(authProvider.notifier).token, 'new-jwt');
+      expect(
+        (container.read(authProvider) as AuthSignedIn).auth.businessId,
+        'biz-1',
+      );
+    });
+
+    test('offline at launch keeps the stored session', () async {
+      final container = containerWith();
+      store.stored = storedSession;
+      api.refreshError = ApiException.network();
+
+      await container.read(authProvider.notifier).restore();
+
+      expect(container.read(authProvider), isA<AuthSignedIn>());
+      expect(store.stored!.token, 'old-jwt');
+      expect(store.clearCount, 0);
+    });
+
+    test('a server error at launch keeps the stored session', () async {
+      final container = containerWith();
+      store.stored = storedSession;
+      api.refreshError = ApiException.fromResponse(500, '');
+
+      await container.read(authProvider.notifier).restore();
+
+      expect(container.read(authProvider), isA<AuthSignedIn>());
+      expect(store.clearCount, 0);
+    });
+
+    test('an already-expired session signs out and says why', () async {
+      final container = containerWith();
+      store.stored = storedSession;
+      api.refreshError = ApiException.fromResponse(
+        401,
+        '{"error":"Invalid or expired token"}',
+      );
+
+      await container.read(authProvider.notifier).restore();
+
+      expect(
+        (container.read(authProvider) as AuthSignedOut).error,
+        'Your session has expired. Please sign in again.',
+      );
+      expect(store.stored, isNull);
+    });
+
+    test(
+      'a removed business sends a multi-business user to the picker',
+      () async {
+        final container = containerWith();
+        store.stored = storedSession;
+        api.refreshResult = renewed(businessIds: ['biz-2', 'biz-3']);
+
+        await container.read(authProvider.notifier).restore();
+
+        expect(container.read(authProvider), isA<AuthNeedsBusiness>());
+        expect(store.stored!.businessId, isNull);
+      },
+    );
+
+    test('an account unlinked from every business is signed out', () async {
+      final container = containerWith();
+      store.stored = storedSession;
+      api.refreshResult = renewed(businessIds: const []);
+
+      await container.read(authProvider.notifier).restore();
+
+      expect(container.read(authProvider), isA<AuthSignedOut>());
+      expect(store.stored, isNull);
+    });
+
+    test(
+      'resuming soon after a renewal does not call the server again',
+      () async {
+        final container = containerWith();
+        store.stored = storedSession;
+        api.refreshResult = renewed();
+        await container.read(authProvider.notifier).restore();
+
+        await container.read(authProvider.notifier).renew();
+
+        expect(api.refreshCalls, hasLength(1));
+      },
+    );
+
+    test('signing out while a renewal is in flight stays signed out', () async {
+      final container = containerWith();
+      store.stored = storedSession;
+      api.refreshResult = renewed();
+      final gate = Completer<void>();
+      api.gate = gate.future;
+
+      final restoring = container.read(authProvider.notifier).restore();
+      await Future<void>.delayed(Duration.zero);
+      await container.read(authProvider.notifier).signOut();
+      gate.complete();
+      await restoring;
+
+      expect(container.read(authProvider), isA<AuthSignedOut>());
+      expect(store.stored, isNull);
+    });
+
+    test('a login stored by version 1.3.0 still reads after the update', () {
+      // The exact shape 1.3.0 writes. If this stops parsing, SecureTokenStore
+      // throws it away and every phone is signed out by the update.
+      final restored = StoredAuth.fromJson(
+        jsonDecode(
+              '{"token":"t","name":"Sam","role":"staff",'
+              '"businessIds":["biz-1"],"businessId":"biz-1"}',
+            )
+            as Map<String, dynamic>,
+      );
+      expect(restored.token, 't');
+      expect(restored.businessId, 'biz-1');
+    });
+  });
 
   test('signing out clears the token and can carry a reason', () async {
     final container = containerWith();

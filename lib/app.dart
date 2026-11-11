@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -12,15 +14,39 @@ class QwalletScanApp extends ConsumerStatefulWidget {
   ConsumerState<QwalletScanApp> createState() => _QwalletScanAppState();
 }
 
-class _QwalletScanAppState extends ConsumerState<QwalletScanApp> {
+class _QwalletScanAppState extends ConsumerState<QwalletScanApp>
+    with WidgetsBindingObserver {
+  Timer? _renewTimer;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // After the first frame: restore() writes to a provider, which cannot
     // happen during a build.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(authProvider.notifier).restore();
     });
+    // A till phone can sit on the scan screen for days without ever going to
+    // the background, so resuming alone would not keep its session alive.
+    _renewTimer = Timer.periodic(
+      const Duration(hours: 1),
+      (_) => ref.read(authProvider.notifier).renew(),
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.read(authProvider.notifier).renew();
+    }
+  }
+
+  @override
+  void dispose() {
+    _renewTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   @override

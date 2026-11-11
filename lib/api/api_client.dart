@@ -16,6 +16,11 @@ import 'models/session.dart';
 abstract class ApiClient {
   Future<Session> login({required String identifier, required String password});
 
+  /// Swaps [token] — still valid — for a fresh seven-day session. Takes the
+  /// token explicitly because it runs during `restore()`, before the auth
+  /// state (which the normal header reader reads) holds it.
+  Future<Session> refreshSession(String token);
+
   Future<String> fetchBusinessName(String businessId);
 
   Future<LoyaltyCard> fetchCard({
@@ -101,8 +106,8 @@ class HttpApiClient implements ApiClient {
   final http.Client _http;
   final String? Function() _tokenReader;
 
-  Map<String, String> get _headers {
-    final token = _tokenReader();
+  Map<String, String> _headers([String? tokenOverride]) {
+    final token = tokenOverride ?? _tokenReader();
     return {
       'Content-Type': 'application/json',
       if (token != null) 'Authorization': 'Bearer $token',
@@ -127,10 +132,12 @@ class HttpApiClient implements ApiClient {
     String method,
     Uri uri, {
     Object? body,
+    String? token,
   }) async {
     late http.Response response;
     try {
-      final request = http.Request(method, uri)..headers.addAll(_headers);
+      final request = http.Request(method, uri)
+        ..headers.addAll(_headers(token));
       if (body != null) request.body = jsonEncode(body);
       final streamed = await _http.send(request);
       response = await http.Response.fromStream(streamed);
@@ -165,6 +172,16 @@ class HttpApiClient implements ApiClient {
       'POST',
       _uri(['api', 'auth', 'login']),
       body: {'identifier': identifier, 'password': password},
+    );
+    return Session.fromJson(json);
+  }
+
+  @override
+  Future<Session> refreshSession(String token) async {
+    final json = await _send(
+      'POST',
+      _uri(['api', 'auth', 'refresh']),
+      token: token,
     );
     return Session.fromJson(json);
   }

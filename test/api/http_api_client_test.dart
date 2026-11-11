@@ -21,6 +21,40 @@ MockClient respondWith(int status, String body, {List<http.Request>? capture}) {
 void main() {
   group('HttpApiClient', () {
     test(
+      'refreshSession sends the token it is given, not the signed-out reader',
+      () async {
+        final sent = <http.Request>[];
+        final client = HttpApiClient(
+          baseUrl: 'https://api.test',
+          // restore() renews before the auth state holds the token.
+          tokenReader: () => null,
+          httpClient: respondWith(
+            200,
+            jsonEncode({
+              'token': 'jwt-new',
+              'user': {
+                'id': '98',
+                'email': null,
+                'name': 'Till 1',
+                'role': 'staff',
+                'businessIds': ['biz-1'],
+              },
+            }),
+            capture: sent,
+          ),
+        );
+
+        final session = await client.refreshSession('jwt-old');
+
+        expect(sent.single.method, 'POST');
+        expect(sent.single.url.toString(), 'https://api.test/api/auth/refresh');
+        expect(sent.single.headers['Authorization'], 'Bearer jwt-old');
+        expect(session.token, 'jwt-new');
+        expect(session.userId, 98);
+      },
+    );
+
+    test(
       'login posts the identifier and password, and returns the session',
       () async {
         final sent = <http.Request>[];

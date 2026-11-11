@@ -51,6 +51,21 @@ class FakeApiClient implements ApiClient {
     return loginResult!;
   }
 
+  /// Left null with no error, refresh fails as if offline — which keeps the
+  /// stored session, so tests that do not care about renewal are unaffected.
+  Session? refreshResult;
+  ApiException? refreshError;
+  final List<String> refreshCalls = [];
+
+  @override
+  Future<Session> refreshSession(String token) async {
+    refreshCalls.add(token);
+    await _wait();
+    if (refreshError != null) throw refreshError!;
+    if (refreshResult == null) throw ApiException.network();
+    return refreshResult!;
+  }
+
   @override
   Future<String> fetchBusinessName(String businessId) async => businessName;
 

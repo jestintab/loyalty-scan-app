@@ -45,6 +45,9 @@ class AuthNotifier extends Notifier<AuthState> {
   ApiClient get _api => ref.read(apiClientProvider);
 
   /// Called once at startup.
+  ///
+  /// The stored session is shown straight away — a till must open even with
+  /// no signal — and then renewed in the background.
   Future<void> restore() async {
     final stored = await _store.read();
     if (stored == null) {
@@ -54,7 +57,91 @@ class AuthNotifier extends Notifier<AuthState> {
     state = stored.businessId == null
         ? AuthNeedsBusiness(stored)
         : AuthSignedIn(stored);
+    await renew(force: true);
   }
+
+  /// How often a session is renewed at most, outside of a fresh launch.
+  static const renewInterval = Duration(minutes: 30);
+
+  DateTime? _lastRenewal;
+  Future<void>? _renewing;
+
+  /// Swaps the session for a fresh seven-day one.
+  ///
+  /// The token used to last exactly seven days from sign-in with no way to
+  /// extend it, so every staff phone was sent to the login screen once a
+  /// week. Called on launch, on returning to the foreground, and hourly while
+  /// the app stays open, so any phone used within a week stays signed in.
+  ///
+  /// Only a 401 signs out — the session had already expired, or the account
+  /// was switched off. Offline or a server error keeps the session as it is;
+  /// the next launch or resume tries again.
+  Future<void> renew({bool force = false}) {
+    final inFlight = _renewing;
+    if (inFlight != null) return inFlight;
+    final last = _lastRenewal;
+    if (!force &&
+        last != null &&
+        DateTime.now().difference(last) < renewInterval) {
+      return Future.value();
+    }
+    final run = _renew();
+    _renewing = run;
+    return run.whenComplete(() => _renewing = null);
+  }
+
+  Future<void> _renew() async {
+    final current = _currentAuth;
+    if (current == null) return;
+    try {
+      final session = await _api.refreshSession(current.token);
+      // Signed out, or signed in as someone else, while the call was out:
+      // this answer belongs to a session that is gone.
+      if (_currentAuth?.token != current.token) return;
+      _lastRenewal = DateTime.now();
+
+      if (!_rolesAllowed.contains(session.role)) {
+        await signOut(reason: 'This app is for staff and business owners.');
+        return;
+      }
+      if (session.businessIds.isEmpty) {
+        await signOut(
+          reason:
+              'This account is not linked to a business. Ask the owner to add you.',
+        );
+        return;
+      }
+
+      // Re-read: a business may have been picked while the call was out.
+      final latest = _currentAuth!;
+      final chosen = latest.businessId;
+      final businessId = chosen != null && session.businessIds.contains(chosen)
+          ? chosen
+          : session.businessIds.length == 1
+          ? session.businessIds.first
+          : null;
+      final updated = StoredAuth(
+        token: session.token,
+        name: session.name,
+        role: session.role,
+        businessIds: session.businessIds,
+        businessId: businessId,
+      );
+      await _store.write(updated);
+      state = businessId == null
+          ? AuthNeedsBusiness(updated)
+          : AuthSignedIn(updated);
+    } on ApiException catch (e) {
+      if (_currentAuth?.token != current.token) return;
+      await handleApiError(e);
+    }
+  }
+
+  StoredAuth? get _currentAuth => switch (state) {
+    AuthNeedsBusiness(:final auth) => auth,
+    AuthSignedIn(:final auth) => auth,
+    _ => null,
+  };
 
   Future<void> signIn(String identifier, String password) async {
     state = const AuthLoading();
@@ -127,8 +214,9 @@ class AuthNotifier extends Notifier<AuthState> {
 
   /// The one place an expired session is acted on.
   ///
-  /// The token lasts seven days and there is no refresh endpoint, so every
-  /// device hits this eventually. Signing out flips `authProvider`, which the
+  /// The token lasts seven days. `renew()` keeps extending it while the app is
+  /// in use, so this is reached by a phone left unused for a week, or an
+  /// account that was switched off. Signing out flips `authProvider`, which the
   /// router is listening to, so the staff member lands on the login screen with
   /// the reason showing — rather than reading "your session has expired" on a
   /// screen that offers no way to fix it.
